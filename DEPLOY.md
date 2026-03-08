@@ -12,7 +12,7 @@ Note: Do NOT commit real secrets to the repo. Use Vercel env vars for production
 
 Build steps (local test)
 - npm ci
-- npm run typecheck
+- npm run typecheck   # optional in CI; locally recommended
 - npm run build
 - npm run preview  # http://localhost:4173
 
