@@ -146,7 +146,8 @@ Key RPCs (cheat sheet)
 - lock_and_generate_single_elim(id)
 - schedule_match_deadline(match_id, scheduled_at, deadline_at, window_hours)
 - report_no_show(match_id, reporter_id, reason, grace_hours)
-- auto_resolve_pending_results(hours), process_expired_no_shows()
+- 
+auto_resolve_pending_results(hours), process_expired_no_shows()
 - generate_groups(tournament_id, group_count, advance_per_group)
 - advance_groups_to_knockout(tournament_id, advance_per_group)
 
