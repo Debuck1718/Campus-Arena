@@ -19,9 +19,9 @@ Build steps (local test)
 Deploy (Vercel)
 1) Import GitHub repo into Vercel.
 2) Set env vars for Production (and Preview if desired).
-3) Build command: npm run build
+3) Build command: npm run build  # uses npx vite build
 4) Output dir: dist (Vercel auto-detects for Vite)
-5) vercel.json is provided with SPA rewrites (no legacy "builds" key).
+5) vercel.json sets buildCommand/outputDirectory and SPA rewrites (no legacy "builds" key).
 6) Deploy main branch.
 
 If you see "Build 'src' is 'index.html' but expected 'package.json'":
