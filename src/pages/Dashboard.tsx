@@ -1,0 +1,65 @@
+import React from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '../supabaseClient';
+import { useProfilesMap } from '../hooks/useProfilesMap';
+import { Link } from 'react-router-dom';
+import { Card, SectionTitle, Avatar } from '../components/ui';
+
+async function fetchUpcoming() {
+  const { data, error } = await supabase
+    .from('v_user_upcoming_matches')
+    .select('*')
+    .order('scheduled_at', { ascending: true });
+  if (error) throw error;
+  return data;
+}
+
+export function Dashboard() {
+  const { data, isLoading, error } = useQuery({ queryKey: ['upcoming'], queryFn: fetchUpcoming });
+  const [uid, setUid] = React.useState<string | null>(null);
+  React.useEffect(() => { supabase.auth.getUser().then(({ data }) => setUid(data.user?.id ?? null)); }, []);
+  const ids = (data || []).flatMap((m:any)=>[m.player1_id, m.player2_id]).filter(Boolean) as string[];
+  const { nameMap, avatarMap } = useProfilesMap(ids);
+  const name = (pid?: string|null) => (pid ? (nameMap.get(pid) || pid) : 'TBD');
+  const avatar = (pid?: string|null) => (pid ? (avatarMap.get(pid) || null) : null);
+
+  return (
+    <div className="container py-4">
+      <SectionTitle>Upcoming matches</SectionTitle>
+      {isLoading && <div>Loading...</div>}
+      {error && <div className="text-red-600">{(error as any).message}</div>}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {data?.map((m:any)=> {
+          const involved = uid && (uid === m.player1_id || uid === m.player2_id);
+          return (
+            <Card key={m.match_id}>
+              <div className="text-sm text-gray-500">{m.tournament_name}</div>
+              <div className="font-semibold">Round {m.round_number} • Match {m.match_number}</div>
+              <div className="flex items-center gap-3 text-sm">
+                <div className="flex items-center gap-2">
+                  <Avatar src={avatar(m.player1_id)} alt={name(m.player1_id)} />
+                  <span>{name(m.player1_id)}</span>
+                </div>
+                <span className="text-gray-400">vs</span>
+                <div className="flex items-center gap-2">
+                  <Avatar src={avatar(m.player2_id)} alt={name(m.player2_id)} />
+                  <span>{name(m.player2_id)}</span>
+                </div>
+              </div>
+              <div className="text-sm">Status: {m.status}</div>
+              <div className="text-xs text-gray-500">Scheduled: {m.scheduled_at ? new Date(m.scheduled_at).toLocaleString() : 'TBD'}</div>
+              <div className="text-xs text-gray-500">Deadline: {m.deadline_at ? new Date(m.deadline_at).toLocaleString() : '—'}</div>
+              <div className="mt-2 flex items-center gap-4 text-sm">
+                <Link to={`/tournaments/${m.tournament_id}`} className="text-primary-600 hover:underline">Tournament</Link>
+                <Link to={`/tournaments/${m.tournament_id}/match/${m.match_id}`} className="text-primary-600 hover:underline">Match</Link>
+                {involved && m.status !== 'completed' && (
+                  <Link to={`/tournaments/${m.tournament_id}/submit/${m.match_id}`} className="text-primary-600 hover:underline">Submit</Link>
+                )}
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
