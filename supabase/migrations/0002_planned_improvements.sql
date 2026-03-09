@@ -135,7 +135,6 @@ alter table if exists rankings
   add column if not exists game_id uuid references games(id),
   add column if not exists matches_played int default 0;
 
--- maintain compatibility: optional uniqueness by (profile_id, season_id, game_id)
 do $$
 begin
   if not exists (
@@ -167,7 +166,6 @@ declare
   new_elo1 int;
   new_elo2 int;
 begin
-  -- Only act on confirmed status
   if new.status <> 'confirmed' then
     return new;
   end if;
@@ -179,7 +177,6 @@ begin
 
   select game_id, season_id into g_id, season from tournaments where id = m.tournament_id;
 
-  -- Load or init rankings rows for both players (season+game scoped)
   insert into rankings (profile_id, season_id, game_id)
   values (m.player1_id, season, g_id)
   on conflict (profile_id) do nothing;
@@ -188,11 +185,9 @@ begin
   values (m.player2_id, season, g_id)
   on conflict (profile_id) do nothing;
 
-  -- Fetch current ratings
   select r.points, r.elo_rating into p1 from rankings r where r.profile_id = m.player1_id and (r.season_id is not distinct from season) and (r.game_id is not distinct from g_id);
   select r.points, r.elo_rating into p2 from rankings r where r.profile_id = m.player2_id and (r.season_id is not distinct from season) and (r.game_id is not distinct from g_id);
 
-  -- Defaults if null
   if p1.elo_rating is null then p1.elo_rating := 1200; end if;
   if p2.elo_rating is null then p2.elo_rating := 1200; end if;
 
@@ -211,7 +206,6 @@ begin
     new_elo2 := round(p2.elo_rating + k_factor * (1 - expected2));
   end if;
 
-  -- Update rankings: points simple system (3 for a win), wins/losses, matches_played, last_played_at
   update rankings
   set
     elo_rating = new_elo1,
@@ -236,7 +230,6 @@ begin
 end;
 $$ language plpgsql;
 
--- Attach to the same trigger as winner advancement: when a result becomes confirmed
 drop trigger if exists match_result_confirm_trigger on match_results;
 create trigger match_result_confirm_trigger
 after update of status on match_results
@@ -244,7 +237,6 @@ for each row
 when (new.status = 'confirmed')
 execute procedure advance_winner();
 
--- Additional trigger to update rankings
 drop trigger if exists match_result_ranking_trigger on match_results;
 create trigger match_result_ranking_trigger
 after update of status on match_results
@@ -259,14 +251,14 @@ create table if not exists admin_audit_logs (
   id uuid primary key default gen_random_uuid(),
   actor_id uuid references profiles(id),
   action text not null,
-  entity_type text not null, -- 'tournament','match','result','user','prize','dispute'
+  entity_type text not null,
   entity_id uuid,
   details jsonb default '{}'::jsonb,
   created_at timestamptz default now()
 );
 
 -------------------------------------------------
--- BASIC RLS (Skeletons) - adjust in later phase
+-- BASIC RLS & POLICIES (Fixes Syntax Error 42601)
 -------------------------------------------------
 alter table if exists notifications enable row level security;
 alter table if exists chats enable row level security;
@@ -279,50 +271,49 @@ alter table if exists seasons enable row level security;
 alter table if exists season_members enable row level security;
 alter table if exists admin_audit_logs enable row level security;
 
--- Public read, owner write policies (simplified baseline)
-create policy if not exists notifications_read_own on notifications
-for select using (profile_id = auth.uid());
+-- Notifications
+drop policy if exists notifications_read_own on notifications;
+create policy notifications_read_own on notifications for select using (profile_id = auth.uid());
+drop policy if exists notifications_insert_own on notifications;
+create policy notifications_insert_own on notifications for insert with check (profile_id = auth.uid());
 
-create policy if not exists notifications_insert_own on notifications
-for insert with check (profile_id = auth.uid());
+-- Chats
+drop policy if exists chats_read_public on chats;
+create policy chats_read_public on chats for select using (true);
 
-create policy if not exists chats_read_public on chats
-for select using (true);
+-- Chat Messages
+drop policy if exists chat_messages_read_public on chat_messages;
+create policy chat_messages_read_public on chat_messages for select using (true);
+drop policy if exists chat_messages_insert_authenticated on chat_messages;
+create policy chat_messages_insert_authenticated on chat_messages for insert with check (auth.uid() is not null);
 
-create policy if not exists chat_messages_read_public on chat_messages
-for select using (true);
-
-create policy if not exists chat_messages_insert_authenticated on chat_messages
-for insert with check (auth.uid() is not null);
-
-create policy if not exists disputes_read_involved on disputes
-for select using (
+-- Disputes
+drop policy if exists disputes_read_involved on disputes;
+create policy disputes_read_involved on disputes for select using (
+  exists (select 1 from matches m where m.id = disputes.match_id and (m.player1_id = auth.uid() or m.player2_id = auth.uid()))
+);
+drop policy if exists disputes_insert_involved on disputes;
+create policy disputes_insert_involved on disputes for insert with check (
   exists (select 1 from matches m where m.id = disputes.match_id and (m.player1_id = auth.uid() or m.player2_id = auth.uid()))
 );
 
-create policy if not exists disputes_insert_involved on disputes
-for insert with check (
-  exists (select 1 from matches m where m.id = disputes.match_id and (m.player1_id = auth.uid() or m.player2_id = auth.uid()))
-);
+-- Seasons
+drop policy if exists seasons_read_public on seasons;
+create policy seasons_read_public on seasons for select using (true);
+drop policy if exists season_members_read_own on season_members;
+create policy season_members_read_own on season_members for select using (profile_id = auth.uid());
+drop policy if exists season_members_insert_own on season_members;
+create policy season_members_insert_own on season_members for insert with check (profile_id = auth.uid());
 
-create policy if not exists seasons_read_public on seasons
-for select using (true);
+-- Prizes
+drop policy if exists prizes_read_public on prizes;
+create policy prizes_read_public on prizes for select using (true);
+drop policy if exists tournament_prizes_read_public on tournament_prizes;
+create policy tournament_prizes_read_public on tournament_prizes for select using (true);
 
-create policy if not exists season_members_read_own on season_members
-for select using (profile_id = auth.uid());
-
-create policy if not exists season_members_insert_own on season_members
-for insert with check (profile_id = auth.uid());
-
-create policy if not exists prizes_read_public on prizes
-for select using (true);
-
-create policy if not exists tournament_prizes_read_public on tournament_prizes
-for select using (true);
-
--- Admin audit logs: read restricted (placeholder, allow none by default)
-create policy if not exists admin_audit_logs_none on admin_audit_logs
-for select using (false);
+-- Admin Audit Logs
+drop policy if exists admin_audit_logs_none on admin_audit_logs;
+create policy admin_audit_logs_none on admin_audit_logs for select using (false);
 
 -------------------------------------------------
 -- DEFAULT SEASON SEED
