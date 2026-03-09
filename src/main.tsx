@@ -61,35 +61,29 @@ function Layout() {
   );
 }
 
-function Home() {
-  return (
-    <div className="container py-10">
-      <div className="max-w-2xl">
-        <h1 className="text-3xl font-bold mb-2">Welcome to <span className="text-primary-600">CampusArena</span></h1>
-        <p className="text-gray-600">Create and join tournaments, submit results, and climb the rankings.</p>
-      </div>
-    </div>
-  );
-}
+
 
 const router = createBrowserRouter([
-  { path: '/', element: <Layout />, children: [
-    { index: true, element: <Home /> },
-    { path: 'login', element: <Login /> },
-    { path: 'signup', element: <Signup /> },
-    { path: 'privacy', element: <Privacy /> },
-    { path: 'terms', element: <Terms /> },
-    { element: <AuthGate />, children: [
-      { path: 'dashboard', element: <Dashboard /> },
-      { path: 'tournaments', element: <Tournaments /> },
-      { path: 'tournaments/create', element: <CreateTournament /> },
-      { path: 'tournaments/:id', element: <TournamentDetail /> },
-      { path: 'tournaments/:id/match/:matchId', element: <MatchDetail /> },
-      { path: 'tournaments/:id/submit/:matchId', element: <SubmitResult /> },
-      { path: 'profile', element: <Profile /> },
-    ]},
-    { path: '*', element: <NotFound /> }
-  ]},
+  {
+    path: '/', element: <Layout />, children: [
+      { path: 'login', element: <Login /> },
+      { path: 'signup', element: <Signup /> },
+      { path: 'privacy', element: <Privacy /> },
+      { path: 'terms', element: <Terms /> },
+      {
+        element: <AuthGate />, children: [
+          { path: 'dashboard', element: <Dashboard /> },
+          { path: 'tournaments', element: <Tournaments /> },
+          { path: 'tournaments/create', element: <CreateTournament /> },
+          { path: 'tournaments/:id', element: <TournamentDetail /> },
+          { path: 'tournaments/:id/match/:matchId', element: <MatchDetail /> },
+          { path: 'tournaments/:id/submit/:matchId', element: <SubmitResult /> },
+          { path: 'profile', element: <Profile /> },
+        ]
+      },
+      { path: '*', element: <NotFound /> }
+    ]
+  },
 ]);
 
 import { ToastProvider } from './components/Toast';
