@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNotifications } from '../hooks/useNotifications';
 import clsx from 'clsx';
 import { supabase } from '../supabaseClient';
 
@@ -67,6 +68,8 @@ export function Navbar({ onLogout }: { onLogout?: () => void }) {
   const [avatarUrl, setAvatarUrl] = React.useState<string | null>(null);
   const [username, setUsername] = React.useState<string>('U');
   const [menuOpen, setMenuOpen] = React.useState(false);
+  const [notifOpen, setNotifOpen] = React.useState(false);
+  const { notifications, loading, markAsRead } = useNotifications();
 
   React.useEffect(() => {
     (async () => {
@@ -106,6 +109,54 @@ export function Navbar({ onLogout }: { onLogout?: () => void }) {
           </a>
         </div>
         <div className="ml-auto hidden sm:flex items-center gap-3">
+          {/* Notification Bell */}
+          <div className="relative">
+            <button
+              className="relative p-2 rounded-full hover:bg-gray-100"
+              aria-label="Notifications"
+              onClick={() => setNotifOpen((v) => !v)}
+            >
+              <span role="img" aria-label="bell">🔔</span>
+              {notifications.filter((n) => !n.read_at).length > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full text-xs px-1.5">
+                  {notifications.filter((n) => !n.read_at).length}
+                </span>
+              )}
+            </button>
+            {notifOpen && (
+              <div className="absolute right-0 mt-2 w-80 bg-white border rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
+                <div className="p-3 border-b font-semibold">Notifications</div>
+                {loading ? (
+                  <div className="p-3 text-gray-500">Loading...</div>
+                ) : notifications.length === 0 ? (
+                  <div className="p-3 text-gray-500">No notifications</div>
+                ) : (
+                  notifications.map((n) => (
+                    <div
+                      key={n.id}
+                      className={clsx(
+                        'px-4 py-2 text-sm border-b last:border-b-0 flex justify-between items-center',
+                        !n.read_at ? 'bg-blue-50' : 'bg-white'
+                      )}
+                    >
+                      <div>
+                        <div className="font-medium">{n.type.replace(/_/g, ' ')}</div>
+                        <div className="text-xs text-gray-500">{new Date(n.created_at).toLocaleString()}</div>
+                      </div>
+                      {!n.read_at && (
+                        <button
+                          className="text-xs text-primary-600 hover:underline ml-2"
+                          onClick={() => markAsRead(n.id)}
+                        >
+                          Mark read
+                        </button>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
           <a href="/profile" title="Your profile" className="flex items-center gap-2">
             <Avatar src={avatarUrl} alt={username} size={28} />
             <span className="hidden sm:inline text-sm text-gray-700">{username}</span>
@@ -149,6 +200,7 @@ export function Navbar({ onLogout }: { onLogout?: () => void }) {
             </div>
           </div>
         </div>
-      )}    </nav>
+      )}
+    </nav>
   );
 }

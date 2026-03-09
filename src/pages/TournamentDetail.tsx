@@ -1,8 +1,12 @@
 import React from 'react';
+import championImg from '../images/champion.png';
+import cupImg from '../images/cup1.png';
+import winnerImg from '../images/winner.png';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../supabaseClient';
 import { useProfilesMap } from '../hooks/useProfilesMap';
+import { useMatchResults } from '../hooks/useMatchResults';
 
 async function fetchTournament(id: string) {
   const { data, error } = await supabase.from('tournaments').select('*').eq('id', id).single();
@@ -125,7 +129,10 @@ export function TournamentDetail() {
       </div>
       {err && <div className="text-red-600 mb-3 text-sm">{err}</div>}
 
-      <h3 className="text-lg font-semibold mb-2">Bracket</h3>
+      <div className="flex items-center gap-3 mb-2">
+        <img src={championImg} alt="Champion" style={{ height: 32 }} />
+        <h3 className="text-lg font-semibold">Bracket</h3>
+      </div>
       {sortedRoundNumbers.length === 0 && <div className="text-gray-500">No matches yet.</div>}
       <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start', overflowX: 'auto', paddingBottom: 8 }}>
         {sortedRoundNumbers.map((round) => {
@@ -141,6 +148,9 @@ export function TournamentDetail() {
                   const winner = m.winner_id ? name(m.winner_id) : null;
                   const isP1Winner = !!m.winner_id && m.winner_id === m.player1_id;
                   const isP2Winner = !!m.winner_id && m.winner_id === m.player2_id;
+
+                  // Fetch match results for this match
+                  const { data: results, isLoading: loadingResults } = useMatchResults(m.id);
 
                   return (
                     <div
@@ -178,10 +188,47 @@ export function TournamentDetail() {
                         <div style={{ fontWeight: isP2Winner ? 600 : 400 }}>P2: {p2}{isP2Winner ? ' ✅' : ''}</div>
                       </div>
                       {winner && (
-                        <div style={{ marginTop: 6, fontSize: 14 }}>
+                        <div style={{ marginTop: 6, fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <img src={cupImg} alt="Winner" style={{ height: 24 }} />
                           Winner: <span style={{ fontWeight: 600 }}>{winner}</span>
                         </div>
                       )}
+                      {/* Submitted Results with Screenshots/Videos */}
+                      <div className="mt-2">
+                        <div className="font-semibold text-xs mb-1">Submitted Results</div>
+                        {loadingResults ? (
+                          <div className="text-xs">Loading results...</div>
+                        ) : results && results.length > 0 ? (
+                          <div className="space-y-2">
+                            {results.map((r: any) => (
+                              <div key={r.id} className="border rounded p-1 bg-gray-50">
+                                <div className="flex items-center gap-2 text-xs mb-1">
+                                  <span className="font-medium">{name(r.reported_by)}</span>
+                                  <span className="text-gray-400 ml-1">{new Date(r.created_at).toLocaleString()}</span>
+                                  <span className="ml-2 px-2 py-0.5 rounded text-xs" style={{ background: r.status === 'confirmed' ? '#16a34a' : r.status === 'disputed' ? '#ef4444' : '#e5e7eb', color: r.status === 'confirmed' ? '#fff' : '#111' }}>{r.status}</span>
+                                </div>
+                                <div className="text-xs text-gray-700 mb-1">Score: {r.score_player1} - {r.score_player2}</div>
+                                {r.screenshot_url && (
+                                  <div className="mb-1">
+                                    <a href={r.screenshot_url} target="_blank" rel="noopener noreferrer">
+                                      <img src={r.screenshot_url} alt="Screenshot" className="max-h-24 rounded border" style={{ maxWidth: 160 }} />
+                                    </a>
+                                  </div>
+                                )}
+                                {/* Video proof support (future):
+                                {r.video_url && (
+                                  <div className="mb-1">
+                                    <video src={r.video_url} controls className="max-h-24 rounded border" style={{ maxWidth: 160 }} />
+                                  </div>
+                                )}
+                                */}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-xs text-gray-400">No results submitted yet.</div>
+                        )}
+                      </div>
                       {involved && m.status !== 'completed' && (
                         <div style={{ marginTop: 8 }}>
                           <Link
@@ -200,6 +247,14 @@ export function TournamentDetail() {
           );
         })}
       </div>
+      {/* Tournament Winner Display */}
+      {sortedRoundNumbers.length > 0 && data?.t?.winner_id && (
+        <div className="flex flex-col items-center mt-10">
+          <img src={winnerImg} alt="Tournament Winner" style={{ height: 80, marginBottom: 12 }} />
+          <div className="text-2xl font-bold text-primary-600">Tournament Winner</div>
+          <div className="text-xl font-semibold mt-2">{name(data.t.winner_id)}</div>
+        </div>
+      )}
     </div>
   );
 }

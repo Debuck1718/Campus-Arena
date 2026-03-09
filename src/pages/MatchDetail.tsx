@@ -1,9 +1,13 @@
 import React from 'react';
+import cupImg from '../images/cup1.png';
 import { useParams, Link } from 'react-router-dom';
 import { useMatch } from '../hooks/useMatch';
 import { useProfilesMap } from '../hooks/useProfilesMap';
+import { useMatchResults } from '../hooks/useMatchResults';
 import { supabase } from '../supabaseClient';
 import { Avatar, Card, SectionTitle } from '../components/ui';
+import { Chat } from '../components/Chat';
+import { useMatchChatId } from '../hooks/useMatchChatId';
 
 export function MatchDetail() {
   const { matchId, id: tournamentId } = useParams<{ matchId: string; id: string }>();
@@ -20,9 +24,15 @@ export function MatchDetail() {
   const avatar = (pid?: string | null) => (pid ? avatarMap.get(pid) || null : null);
   const involved = uid && (uid === match?.player1_id || uid === match?.player2_id);
 
+  // Fetch all submitted results for this match
+  const { data: results, isLoading: loadingResults } = useMatchResults(matchId);
+
   if (isLoading) return <div className="container py-6">Loading...</div>;
   if (error) return <div className="container py-6 text-red-600">{(error as any).message}</div>;
   if (!match) return <div className="container py-6">Not found</div>;
+
+  // Chat integration
+  const chatId = useMatchChatId(matchId);
 
   return (
     <div className="container py-4">
@@ -40,9 +50,55 @@ export function MatchDetail() {
           </div>
         </div>
         <div className="mt-3 text-sm">Status: {match.status}</div>
-        {match.winner_id && <div className="mt-1 text-sm">Winner: <span className="font-semibold">{name(match.winner_id)}</span></div>}
+        {match.winner_id && (
+          <div className="mt-1 text-sm flex items-center gap-2">
+            <img src={cupImg} alt="Winner" style={{ height: 20 }} />
+            Winner: <span className="font-semibold">{name(match.winner_id)}</span>
+          </div>
+        )}
         {match.scheduled_at && <div className="mt-1 text-xs text-gray-500">Scheduled: {new Date(match.scheduled_at).toLocaleString()}</div>}
         {match.deadline_at && <div className="mt-1 text-xs text-gray-500">Deadline: {new Date(match.deadline_at).toLocaleString()}</div>}
+        {/* Submitted Results with Screenshots/Videos */}
+        <div className="mt-4">
+          <div className="font-semibold mb-2">Submitted Results</div>
+          {loadingResults ? (
+            <div>Loading results...</div>
+          ) : results && results.length > 0 ? (
+            <div className="space-y-3">
+              {results.map((r: any) => (
+                <div key={r.id} className="border rounded p-2 bg-gray-50">
+                  <div className="flex items-center gap-2 text-sm mb-1">
+                    <Avatar src={avatar(r.reported_by)} alt={name(r.reported_by)} size={24} />
+                    <span className="font-medium">{name(r.reported_by)}</span>
+                    <span className="text-xs text-gray-500 ml-2">{new Date(r.created_at).toLocaleString()}</span>
+                    <span className="ml-2 px-2 py-0.5 rounded text-xs" style={{ background: r.status === 'confirmed' ? '#16a34a' : r.status === 'disputed' ? '#ef4444' : '#e5e7eb', color: r.status === 'confirmed' ? '#fff' : '#111' }}>{r.status}</span>
+                  </div>
+                  <div className="text-xs text-gray-700 mb-1">Score: {r.score_player1} - {r.score_player2}</div>
+                  {r.screenshot_url && (
+                    <div className="mb-1">
+                      <a href={r.screenshot_url} target="_blank" rel="noopener noreferrer">
+                        <img src={r.screenshot_url} alt="Screenshot" className="max-h-40 rounded border" style={{ maxWidth: 320 }} />
+                      </a>
+                    </div>
+                  )}
+                  {/* Video proof support (future):
+                  {r.video_url && (
+                    <div className="mb-1">
+                      <video src={r.video_url} controls className="max-h-40 rounded border" style={{ maxWidth: 320 }} />
+                    </div>
+                  )}
+                  */}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-xs text-gray-500">No results submitted yet.</div>
+          )}
+        </div>
+        {/* Chat UI */}
+        <div className="mt-6">
+          <Chat chatId={chatId} />
+        </div>
       </Card>
       <div className="mt-3 flex items-center gap-4 text-sm">
         {involved && match.status !== 'completed' && tournamentId && (

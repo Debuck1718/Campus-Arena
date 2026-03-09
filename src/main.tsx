@@ -1,3 +1,23 @@
+function Home() {
+  return (
+    <div className="container py-10 flex flex-col items-center">
+      <img
+        src={require('./images/home.png')}
+        alt="CampusArena Home"
+        className="w-full max-w-xl rounded-2xl shadow-lg mb-8 object-cover"
+        style={{ maxHeight: 320 }}
+      />
+      <h1 className="text-4xl md:text-5xl font-extrabold text-primary-600 mb-4 drop-shadow-lg text-center">CampusArena</h1>
+      <p className="text-lg md:text-xl text-gray-700 dark:text-gray-200 mb-6 text-center max-w-2xl">
+        Welcome to <b>CampusArena</b> – the ultimate platform for students to compete, connect, and celebrate their skills!<br />
+        Join thrilling tournaments, track your progress, and become part of a vibrant campus community.<br />
+        Whether you’re a casual player or a fierce competitor, there’s a place for you here.<br />
+        <span className="text-primary-600 font-semibold">Ready to join the fun?</span>
+      </p>
+      <a href="/signup" className="btn btn-primary text-lg px-8 py-3 rounded-full shadow-md hover:scale-105 transition-transform">Get Started</a>
+    </div>
+  );
+}
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { createBrowserRouter, RouterProvider, Outlet, Navigate, useNavigate } from 'react-router-dom';
@@ -15,6 +35,7 @@ import { SubmitResult } from './pages/SubmitResult';
 import { MatchDetail } from './pages/MatchDetail';
 import { Navbar } from './components/ui';
 import { NotFound } from './pages/NotFound';
+import { AdminPanel } from './pages/AdminPanel';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Privacy } from './pages/Privacy';
 import { Terms } from './pages/Terms';
@@ -66,7 +87,9 @@ function Layout() {
 const router = createBrowserRouter([
   {
     path: '/', element: <Layout />, children: [
+      { index: true, element: <Home /> },
       { path: 'login', element: <Login /> },
+      { path: 'admin', element: <AdminPanel /> },
       { path: 'signup', element: <Signup /> },
       { path: 'privacy', element: <Privacy /> },
       { path: 'terms', element: <Terms /> },
