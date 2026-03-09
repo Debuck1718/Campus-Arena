@@ -12,14 +12,34 @@ export function Login() {
   const [show, setShow] = React.useState(false);
 
   async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setErr(null);
-    setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (error) { setErr(error.message); return; }
+  e.preventDefault();
+  setErr(null);
+  setLoading(true);
+  
+  const { data: authData, error } = await supabase.auth.signInWithPassword({ email, password });
+  
+  if (error) { 
+    setErr(error.message); 
+    setLoading(false); 
+    return; 
+  }
+
+  // Fetch the role to decide where to navigate
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', authData.user.id)
+    .single();
+
+  setLoading(false);
+  
+  // Navigate based on role
+  if (profile?.role === 'admin') {
+    nav('/admin');
+  } else {
     nav('/dashboard');
   }
+}
 
   return (
     <div className="container max-w-md py-8">

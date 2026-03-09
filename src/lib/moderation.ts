@@ -14,9 +14,22 @@ export async function removeUser(userId: string) {
   if (error) throw error;
   return true;
 }
+export async function getEvidenceUrl(path: string) {
+  const { data, error } = await supabase.storage
+    .from('evidence')
+    .createSignedUrl(path, 3600); // URL valid for 1 hour
+  if (error) throw error;
+  return data.signedUrl;
+}
 
+// Updated getAllMatchResults to include profiles for context
 export async function getAllMatchResults() {
-  const { data, error } = await supabase.from('match_results').select('*');
+  const { data, error } = await supabase
+    .from('match_results')
+    .select(`
+      *,
+      profiles:reported_by (username)
+    `);
   if (error) throw error;
   return data;
 }
