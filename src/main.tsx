@@ -1,26 +1,6 @@
-function Home() {
-  return (
-    <div className="container py-10 flex flex-col items-center">
-      <img
-        src={require('./images/home.png')}
-        alt="CampusArena Home"
-        className="w-full max-w-xl rounded-2xl shadow-lg mb-8 object-cover"
-        style={{ maxHeight: 320 }}
-      />
-      <h1 className="text-4xl md:text-5xl font-extrabold text-primary-600 mb-4 drop-shadow-lg text-center">CampusArena</h1>
-      <p className="text-lg md:text-xl text-gray-700 dark:text-gray-200 mb-6 text-center max-w-2xl">
-        Welcome to <b>CampusArena</b> – the ultimate platform for students to compete, connect, and celebrate their skills!<br />
-        Join thrilling tournaments, track your progress, and become part of a vibrant campus community.<br />
-        Whether you’re a casual player or a fierce competitor, there’s a place for you here.<br />
-        <span className="text-primary-600 font-semibold">Ready to join the fun?</span>
-      </p>
-      <a href="/signup" className="btn btn-primary text-lg px-8 py-3 rounded-full shadow-md hover:scale-105 transition-transform">Get Started</a>
-    </div>
-  );
-}
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { createBrowserRouter, RouterProvider, Outlet, Navigate, useNavigate } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Outlet, Navigate, useNavigate, Link } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import './styles.css';
 import { supabase } from './supabaseClient';
@@ -39,8 +19,67 @@ import { AdminPanel } from './pages/AdminPanel';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Privacy } from './pages/Privacy';
 import { Terms } from './pages/Terms';
+import { ToastProvider } from './components/Toast';
+
+// Import the image correctly for Vite
+import homeImg from './images/home.png';
 
 const qc = new QueryClient();
+
+function Home() {
+  return (
+    /* flex-col-reverse ensures image is on TOP for mobile, md:flex-row puts it on the RIGHT for desktop */
+    <div className="flex flex-col-reverse md:flex-row items-center justify-between min-h-[80vh] gap-10 px-4 md:px-10">
+      
+      {/* Left side: Text Content */}
+      <section className="flex-1 max-w-2xl animate-in fade-in slide-in-from-bottom-5 duration-700">
+        <div className="inline-block px-4 py-1 mb-6 text-sm font-semibold tracking-wide uppercase bg-blue-100 text-blue-600 rounded-full">
+          Welcome to the Arena
+        </div>
+        <h1 className="text-4xl md:text-6xl font-black leading-tight text-slate-900 mb-6">
+          Compete, Connect & <br />
+          <span className="text-blue-600">Celebrate</span>
+        </h1>
+        <p className="text-lg text-slate-600 mb-8 leading-relaxed">
+          The ultimate platform for students to showcase their skills. Join thrilling tournaments, 
+          track your progress, and become part of a vibrant campus community. 
+          Whether you’re a casual player or a fierce competitor, there’s a place for you here.
+        </p>
+        <Link 
+          to="/signup" 
+          className="inline-flex items-center justify-center bg-blue-600 text-white font-bold py-4 px-10 rounded-full shadow-lg shadow-blue-200 hover:bg-blue-700 hover:-translate-y-1 transition-all duration-300"
+        >
+          Get Started
+        </Link>
+      </section>
+
+      {/* Right side (Top on Mobile): Image Section */}
+      <section className="flex-1 flex justify-center items-center animate-in fade-in duration-1000">
+        <div className="relative">
+          {/* Subtle glow effect behind image */}
+          <div className="absolute inset-0 bg-blue-400 blur-3xl opacity-10 rounded-full"></div>
+          <img
+            src={homeImg}
+            alt="CampusArena Preview"
+            className="relative w-full max-w-lg h-auto rounded-2xl animate-bounce-slow"
+            style={{ 
+              animation: 'float 6s ease-in-out infinite',
+              filter: 'drop-shadow(0 20px 30px rgba(0,0,0,0.1))' 
+            }}
+          />
+        </div>
+      </section>
+      
+      {/* Inline styles for the floating animation */}
+      <style>{`
+        @keyframes float {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-20px); }
+        }
+      `}</style>
+    </div>
+  );
+}
 
 function AuthGate() {
   const [session, setSession] = React.useState<any | null>(null);
@@ -68,21 +107,19 @@ function Layout() {
     nav('/login');
   }
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-50 flex flex-col">
       <Navbar onLogout={logout} />
-      <main className="container py-6">
+      <main className="flex-grow container mx-auto py-8">
         <Outlet />
       </main>
-      <footer className="mt-10 py-6 text-center text-xs text-gray-500">
+      <footer className="py-8 border-t border-slate-200 text-center text-sm text-slate-500">
         © {new Date().getFullYear()} CampusArena •
-        <a href="/privacy" className="ml-2 hover:underline text-primary-600">Privacy</a> •
-        <a href="/terms" className="hover:underline text-primary-600">Terms</a>
+        <Link to="/privacy" className="ml-2 hover:text-blue-600 transition-colors">Privacy</Link> •
+        <Link to="/terms" className="hover:text-blue-600 transition-colors">Terms</Link>
       </footer>
     </div>
   );
 }
-
-
 
 const router = createBrowserRouter([
   {
@@ -108,8 +145,6 @@ const router = createBrowserRouter([
     ]
   },
 ]);
-
-import { ToastProvider } from './components/Toast';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
