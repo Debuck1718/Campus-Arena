@@ -2,102 +2,187 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"
-    />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#2563eb" />
-    <link
-      rel="icon"
-      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2240%22 fill=%22%232563eb%22/><text x=%2250%25%22 y=%2256%25%22 text-anchor=%22middle%22 font-size=%2254%22 fill=%22white%22 font-family=%22Arial, Helvetica, sans-serif%22>CA</text></svg>"
-    />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2240%22 fill=%22%232563eb%22/><text x=%2250%25%22 y=%2256%25%22 text-anchor=%22middle%22 font-size=%2254%22 fill=%22white%22 font-family=%22Arial, Helvetica, sans-serif%22>CA</text></svg>" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="description" content="CampusArena — competitive tournaments for students." />
     <title>CampusArena</title>
+    
     <style>
-      body,
-      html {
-        height: 100%;
+      /* --- Base Variables & Reset --- */
+      :root {
+        --primary: #2563eb;
+        --primary-hover: #1d4ed8;
+        --text-dark: #0f172a;
+        --text-light: #475569;
+        --bg-color: #f8fafc;
+      }
+
+      * {
+        box-sizing: border-box;
         margin: 0;
         padding: 0;
-        font-family: 'Inter', Arial, Helvetica, sans-serif;
-        min-height: 100vh;
       }
-      .landing-bg {
-        background:
-          linear-gradient(rgba(30, 41, 59, 0.7), rgba(30, 41, 59, 0.7)),
-          url('https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1500&q=80')
-            no-repeat center center/cover;
-        min-height: 100vh;
+
+      body, html {
+        height: 100%;
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        background-color: var(--bg-color);
+        color: var(--text-dark);
+        overflow-x: hidden;
+      }
+
+      /* --- Modern Split Layout --- */
+      .hero-container {
         display: flex;
         align-items: center;
-        justify-content: center;
+        justify-content: space-between;
+        min-height: 100vh;
+        max-width: 1280px;
+        margin: 0 auto;
+        padding: 2rem 5%;
+        gap: 4rem;
       }
-      .landing-content {
-        background: rgba(255, 255, 255, 0.85);
-        border-radius: 1.5rem;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
-        padding: 2.5rem 2rem;
-        max-width: 480px;
-        width: 100%;
-        text-align: center;
-        margin: 1.5rem;
+
+      /* --- Left: Text Content --- */
+      .hero-content {
+        flex: 1;
+        max-width: 600px;
+        animation: slideUp 0.8s ease-out forwards;
+        opacity: 0;
+        transform: translateY(20px);
       }
-      .landing-title {
-        font-size: 2.5rem;
+
+      .hero-badge {
+        display: inline-block;
+        padding: 0.5rem 1.25rem;
+        background: rgba(37, 99, 235, 0.1);
+        color: var(--primary);
+        border-radius: 999px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        margin-bottom: 1.5rem;
+        letter-spacing: 0.5px;
+      }
+
+      .hero-title {
+        /* Fluid typography scales smoothly between mobile and desktop */
+        font-size: clamp(2.5rem, 5vw, 4rem); 
         font-weight: 800;
-        color: #2563eb;
-        margin-bottom: 1rem;
+        line-height: 1.1;
+        margin-bottom: 1.5rem;
         letter-spacing: -1px;
       }
-      .landing-desc {
-        font-size: 1.15rem;
-        color: #334155;
-        margin-bottom: 2rem;
+
+      .hero-title span {
+        color: var(--primary);
       }
-      .landing-btn {
-        display: inline-block;
-        background: #2563eb;
+
+      .hero-desc {
+        font-size: clamp(1rem, 2vw, 1.15rem);
+        color: var(--text-light);
+        line-height: 1.6;
+        margin-bottom: 2.5rem;
+      }
+
+      /* --- Interactive Button --- */
+      .hero-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--primary);
         color: #fff;
         font-size: 1.1rem;
         font-weight: 600;
-        padding: 0.85rem 2.5rem;
+        padding: 1rem 2.5rem;
         border-radius: 999px;
         text-decoration: none;
-        box-shadow: 0 2px 8px rgba(37, 99, 235, 0.12);
-        transition:
-          background 0.2s,
-          transform 0.2s;
+        box-shadow: 0 10px 20px -10px rgba(37, 99, 235, 0.5);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       }
-      .landing-btn:hover {
-        background: #1d4ed8;
-        transform: scale(1.04);
+
+      .hero-btn:hover {
+        background: var(--primary-hover);
+        transform: translateY(-3px);
+        box-shadow: 0 15px 25px -10px rgba(37, 99, 235, 0.6);
       }
-      @media (max-width: 600px) {
-        .landing-content {
-          padding: 1.5rem 0.5rem;
+
+      /* --- Right: Image Section --- */
+      .hero-image-wrapper {
+        flex: 1;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        animation: fadeIn 1s ease-out 0.3s forwards;
+        opacity: 0;
+      }
+
+      .hero-image {
+        width: 100%;
+        max-width: 550px;
+        height: auto;
+        border-radius: 1rem;
+        /* Adds a subtle floating effect to the image */
+        animation: float 6s ease-in-out infinite; 
+      }
+
+      /* --- Keyframe Animations --- */
+      @keyframes slideUp {
+        to { opacity: 1; transform: translateY(0); }
+      }
+      
+      @keyframes fadeIn {
+        to { opacity: 1; }
+      }
+
+      @keyframes float {
+        0% { transform: translateY(0px); }
+        50% { transform: translateY(-15px); }
+        100% { transform: translateY(0px); }
+      }
+
+      /* --- Mobile Responsiveness --- */
+      @media (max-width: 900px) {
+        .hero-container {
+          flex-direction: column;
+          text-align: center;
+          padding-top: 6rem;
+          justify-content: center;
+          gap: 2rem;
         }
-        .landing-title {
-          font-size: 2rem;
+
+        .hero-content {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+        }
+        
+        .hero-image-wrapper {
+          width: 100%;
+          margin-top: 1rem;
         }
       }
     </style>
   </head>
   <body>
-    <div class="landing-bg">
-      <section class="landing-content">
-        <h1 class="landing-title">CampusArena</h1>
-        <p class="landing-desc">
-          Welcome to <b>CampusArena</b> – the ultimate platform for students to compete, connect,
-          and celebrate their skills!<br />
-          Join thrilling tournaments, track your progress, and become part of a vibrant campus
-          community.<br />
-          Whether you’re a casual player or a fierce competitor, there’s a place for you here.<br />
-          <span style="color: #2563eb; font-weight: 600">Ready to join the fun?</span>
+    <main class="hero-container">
+      
+      <section class="hero-content">
+        <div class="hero-badge">Welcome to the Arena</div>
+        <h1 class="hero-title">Compete, Connect & <br><span>Celebrate</span></h1>
+        <p class="hero-desc">
+          The ultimate platform for students to showcase their skills. Join thrilling tournaments, track your progress, and become part of a vibrant campus community. Whether you’re a casual player or a fierce competitor, there’s a place for you here.
         </p>
-        <a href="/signup" class="landing-btn">Get Started</a>
+        <a href="/signup" class="hero-btn">Get Started</a>
       </section>
-    </div>
+
+      <section class="hero-image-wrapper">
+        <img src="/src/images/home.png" alt="CampusArena App Preview" class="hero-image" />
+      </section>
+
+    </main>
+    
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
