@@ -2,10 +2,17 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../supabaseClient';
 import { useProfilesMap } from '../hooks/useProfilesMap';
-import { useMatchResults } from '../hooks/useMatchResults';
 import { Link } from 'react-router-dom';
 import { Card, SectionTitle, Avatar } from '../components/ui';
 import soccerImg from '../images/Soccer.png';
+
+// Define the interface for the MatchCard props
+interface MatchCardProps {
+  match: any;
+  uid: string | null;
+  name: (pid?: string | null) => string;
+  avatar: (pid?: string | null) => string | null;
+}
 
 async function fetchUpcoming() {
   const { data, error } = await supabase
@@ -16,92 +23,81 @@ async function fetchUpcoming() {
   return data;
 }
 
+const SkeletonMatchCard = () => (
+  <div className="border rounded-lg p-5 animate-pulse space-y-4 shadow-sm bg-white">
+    <div className="h-4 bg-gray-200 rounded w-1/3"></div>
+    <div className="flex justify-between items-center py-4">
+      <div className="h-12 w-12 bg-gray-200 rounded-full"></div>
+      <div className="h-4 w-8 bg-gray-200 rounded"></div>
+      <div className="h-12 w-12 bg-gray-200 rounded-full"></div>
+    </div>
+  </div>
+);
+
+const MatchCard: React.FC<MatchCardProps> = ({ match, uid, name, avatar }) => {
+  const involved = uid && (uid === match.player1_id || uid === match.player2_id);
+
+  return (
+    // Note: If Card doesn't accept className, remove it or wrap in a div
+    <Card>
+      <div className="flex flex-col gap-3 p-5 border-l-4 border-l-blue-500 hover:shadow-lg transition-all duration-200">
+        <div className="flex justify-between items-start">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{match.tournament_name}</span>
+          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${match.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-gray-100'}`}>
+            {match.status}
+          </span>
+        </div>
+        
+        <div className="flex items-center justify-between py-2">
+          <div className="flex flex-col items-center gap-1 flex-1 min-w-0">
+             {/* If Avatar component doesn't take className, style it via a wrapper */}
+             <div className="w-12 h-12"><Avatar src={avatar(match.player1_id) || ''} alt={name(match.player1_id)} /></div>
+            <span className="text-xs font-medium truncate w-full text-center">{name(match.player1_id)}</span>
+          </div>
+          <span className="text-gray-300 font-black px-2">VS</span>
+          <div className="flex flex-col items-center gap-1 flex-1 min-w-0">
+            <div className="w-12 h-12"><Avatar src={avatar(match.player2_id) || ''} alt={name(match.player2_id)} /></div>
+            <span className="text-xs font-medium truncate w-full text-center">{name(match.player2_id)}</span>
+          </div>
+        </div>
+
+        <div className="mt-auto pt-4 flex items-center justify-between border-t border-gray-100">
+          <Link to={`/tournaments/${match.tournament_id}/match/${match.match_id}`} className="text-xs font-semibold text-blue-600 hover:underline">Details</Link>
+          {involved && match.status !== 'completed' && (
+            <Link to={`/tournaments/${match.tournament_id}/submit/${match.match_id}`} className="px-3 py-1 bg-blue-600 text-white text-xs rounded-md hover:bg-blue-700">Submit</Link>
+          )}
+        </div>
+      </div>
+    </Card>
+  );
+};
+
 export function Dashboard() {
-  const { data, isLoading, error } = useQuery({ queryKey: ['upcoming'], queryFn: fetchUpcoming });
   const [uid, setUid] = React.useState<string | null>(null);
-  React.useEffect(() => { supabase.auth.getUser().then(({ data }) => setUid(data.user?.id ?? null)); }, []);
+  const { data, isLoading, error } = useQuery({ queryKey: ['upcoming'], queryFn: fetchUpcoming });
+
+  React.useEffect(() => { 
+    supabase.auth.getUser().then(({ data }) => setUid(data.user?.id ?? null)); 
+  }, []);
+
   const ids = (data || []).flatMap((m: any) => [m.player1_id, m.player2_id]).filter(Boolean) as string[];
   const { nameMap, avatarMap } = useProfilesMap(ids);
   const name = (pid?: string | null) => (pid ? (nameMap.get(pid) || pid) : 'TBD');
   const avatar = (pid?: string | null) => (pid ? (avatarMap.get(pid) || null) : null);
 
   return (
-    <div className="container py-4">
-      <div className="flex items-center gap-3 mb-6">
-        <img src={soccerImg} alt="Soccer" style={{ height: 36 }} />
-        <SectionTitle>Upcoming matches</SectionTitle>
-      </div>
-      <SectionTitle>Upcoming matches</SectionTitle>
-      {isLoading && <div>Loading...</div>}
-      {error && <div className="text-red-600">{(error as any).message}</div>}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {data?.map((m: any) => {
-          const involved = uid && (uid === m.player1_id || uid === m.player2_id);
-          const { data: results, isLoading: loadingResults } = useMatchResults(m.match_id);
-          return (
-            <Card key={m.match_id}>
-              <div className="text-sm text-gray-500">{m.tournament_name}</div>
-              <div className="font-semibold">Round {m.round_number} • Match {m.match_number}</div>
-              <div className="flex items-center gap-3 text-sm">
-                <div className="flex items-center gap-2">
-                  <Avatar src={avatar(m.player1_id)} alt={name(m.player1_id)} />
-                  <span>{name(m.player1_id)}</span>
-                </div>
-                <span className="text-gray-400">vs</span>
-                <div className="flex items-center gap-2">
-                  <Avatar src={avatar(m.player2_id)} alt={name(m.player2_id)} />
-                  <span>{name(m.player2_id)}</span>
-                </div>
-              </div>
-              <div className="text-sm">Status: {m.status}</div>
-              <div className="text-xs text-gray-500">Scheduled: {m.scheduled_at ? new Date(m.scheduled_at).toLocaleString() : 'TBD'}</div>
-              <div className="text-xs text-gray-500">Deadline: {m.deadline_at ? new Date(m.deadline_at).toLocaleString() : '—'}</div>
-              {/* Submitted Results with Screenshots/Videos */}
-              <div className="mt-2">
-                <div className="font-semibold text-xs mb-1">Submitted Results</div>
-                {loadingResults ? (
-                  <div className="text-xs">Loading results...</div>
-                ) : results && results.length > 0 ? (
-                  <div className="space-y-2">
-                    {results.map((r: any) => (
-                      <div key={r.id} className="border rounded p-1 bg-gray-50">
-                        <div className="flex items-center gap-2 text-xs mb-1">
-                          <span className="font-medium">{name(r.reported_by)}</span>
-                          <span className="text-gray-400 ml-1">{new Date(r.created_at).toLocaleString()}</span>
-                          <span className="ml-2 px-2 py-0.5 rounded text-xs" style={{ background: r.status === 'confirmed' ? '#16a34a' : r.status === 'disputed' ? '#ef4444' : '#e5e7eb', color: r.status === 'confirmed' ? '#fff' : '#111' }}>{r.status}</span>
-                        </div>
-                        <div className="text-xs text-gray-700 mb-1">Score: {r.score_player1} - {r.score_player2}</div>
-                        {r.screenshot_url && (
-                          <div className="mb-1">
-                            <a href={r.screenshot_url} target="_blank" rel="noopener noreferrer">
-                              <img src={r.screenshot_url} alt="Screenshot" className="max-h-24 rounded border" style={{ maxWidth: 160 }} />
-                            </a>
-                          </div>
-                        )}
-                        {/* Video proof support (future):
-                          {r.video_url && (
-                            <div className="mb-1">
-                              <video src={r.video_url} controls className="max-h-24 rounded border" style={{ maxWidth: 160 }} />
-                            </div>
-                          )}
-                          */}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-xs text-gray-400">No results submitted yet.</div>
-                )}
-              </div>
-              <div className="mt-2 flex items-center gap-4 text-sm">
-                <Link to={`/tournaments/${m.tournament_id}`} className="text-primary-600 hover:underline">Tournament</Link>
-                <Link to={`/tournaments/${m.tournament_id}/match/${m.match_id}`} className="text-primary-600 hover:underline">Match</Link>
-                {involved && m.status !== 'completed' && (
-                  <Link to={`/tournaments/${m.tournament_id}/submit/${m.match_id}`} className="text-primary-600 hover:underline">Submit</Link>
-                )}
-              </div>
-            </Card>
-          );
-        })}
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="text-2xl font-bold mb-8 flex items-center gap-2">
+        <img src={soccerImg} alt="Soccer" className="h-8" /> Upcoming Matches
+      </h1>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {isLoading 
+          ? [1, 2, 3].map((n) => <SkeletonMatchCard key={n} />)
+          : data?.map((m: any) => (
+            <MatchCard key={m.match_id} match={m} uid={uid} name={name} avatar={avatar} />
+          ))
+        }
       </div>
     </div>
   );
