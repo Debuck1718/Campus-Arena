@@ -1,16 +1,52 @@
 import React from 'react';
 import { supabase } from '../supabaseClient';
-import { Button, Card, Input, SectionTitle, Avatar } from '../components/ui';
+import { Button, Card, Input, Avatar } from '../components/ui';
 import { uploadAvatar } from '../lib/storage';
+import { 
+  User, 
+  Gamepad2, 
+  ShieldCheck, 
+  History, 
+  TrendingUp, 
+  Swords, 
+  Camera, 
+  Save,
+  CheckCircle2,
+  Medal,
+  Lock
+} from 'lucide-react';
+
+// Achievement Configuration for UI Mapping
+const BADGE_MAP: Record<string, { label: string; desc: string; icon: React.ReactNode }> = {
+  tournament_champion: { 
+    label: "Grand Champion", 
+    desc: "Took 1st place in a major circuit.", 
+    icon: <ShieldCheck size={24} className="text-yellow-500" /> 
+  },
+  first_win: { 
+    label: "First Blood", 
+    desc: "Secured your first match victory.", 
+    icon: <Swords size={24} className="text-blue-500" /> 
+  },
+  power_user: { 
+    label: "Veteran", 
+    desc: "Participated in 10+ tournaments.", 
+    icon: <TrendingUp size={24} className="text-purple-500" /> 
+  }
+};
 
 export function Profile() {
   const [username, setUsername] = React.useState('');
-  // Updated to string array to support multiple platform choices
   const [platforms, setPlatforms] = React.useState<string[]>([]);
   const [avatarUrl, setAvatarUrl] = React.useState('');
   const [uploading, setUploading] = React.useState(false);
   const [msg, setMsg] = React.useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [uid, setUid] = React.useState<string | null>(null);
+  
+  // Stats & Achievements State
+  const [stats, setStats] = React.useState({ wins: 0, losses: 0, points: 0 });
+  const [matches, setMatches] = React.useState<any[]>([]);
+  const [achievements, setAchievements] = React.useState<string[]>([]);
 
   const availablePlatforms = ['PlayStation', 'Xbox', 'PC', 'Mobile'];
 
@@ -21,13 +57,30 @@ export function Profile() {
       setUid(id);
       if (!id) return;
 
-      const { data } = await supabase.from('profiles').select('*').eq('id', id).single();
-      if (data) {
-        setUsername(data.username || '');
-        // Ensure data.platform is handled as an array
-        setPlatforms(Array.isArray(data.platform) ? data.platform : []);
-        setAvatarUrl(data.avatar_url || '');
+      // 1. Fetch Profile Info
+      const { data: profile } = await supabase.from('profiles').select('*').eq('id', id).single();
+      if (profile) {
+        setUsername(profile.username || '');
+        setPlatforms(Array.isArray(profile.platform) ? profile.platform : []);
+        setAvatarUrl(profile.avatar_url || '');
       }
+
+      // 2. Fetch Career Stats
+      const { data: ranking } = await supabase.from('rankings').select('*').eq('player_id', id).single();
+      if (ranking) setStats({ wins: ranking.wins, losses: ranking.losses, points: ranking.points });
+
+      // 3. Fetch Recent Match History
+      const { data: history } = await supabase
+        .from('matches')
+        .select(`id, created_at, status, tournaments (name)`)
+        .or(`player1_id.eq.${id},player2_id.eq.${id}`)
+        .order('created_at', { ascending: false })
+        .limit(5);
+      if (history) setMatches(history);
+
+      // 4. Fetch Earned Achievements
+      const { data: earned } = await supabase.from('achievements').select('badge_type').eq('player_id', id);
+      if (earned) setAchievements(earned.map(a => a.badge_type));
     })();
   }, []);
 
@@ -38,37 +91,27 @@ export function Profile() {
   async function save() {
     setMsg(null);
     if (!uid) return;
-
     const { error } = await supabase
       .from('profiles')
-      .update({
-        username,
-        platform: platforms, // Saving the array of strings
-        avatar_url: avatarUrl,
-        updated_at: new Date().toISOString()
-      })
+      .update({ username, platform: platforms, avatar_url: avatarUrl, updated_at: new Date().toISOString() })
       .eq('id', uid);
 
     if (error) {
       setMsg({ type: 'error', text: error.message });
     } else {
-      setMsg({ type: 'success', text: 'Profile updated successfully!' });
+      setMsg({ type: 'success', text: 'Identity updated successfully!' });
+      setTimeout(() => setMsg(null), 3000);
     }
   }
 
   async function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f || !uid) return;
-    if (!f.type.startsWith('image/')) {
-      setMsg({ type: 'error', text: 'Please upload a valid image file' });
-      return;
-    }
-
     setUploading(true);
     try {
       const url = await uploadAvatar(f, uid);
       setAvatarUrl(url);
-      setMsg({ type: 'success', text: 'Avatar uploaded! Click Save to apply changes.' });
+      setMsg({ type: 'success', text: 'Avatar uploaded! Save to apply.' });
     } catch (err: any) {
       setMsg({ type: 'error', text: err.message || 'Upload failed' });
     } finally {
@@ -77,86 +120,152 @@ export function Profile() {
   }
 
   return (
-    <div className="container max-w-lg py-10 mx-auto">
-      <SectionTitle>Profile Settings</SectionTitle>
+    <div className="min-h-screen bg-[#050505] text-gray-100 pb-20 relative overflow-hidden">
+      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-600/5 blur-[120px] rounded-full pointer-events-none" />
 
-      <Card>
-        <div className="space-y-6">
-          {/* Avatar Section */}
-          <div className="flex flex-col items-center gap-4 sm:flex-row">
-            <div className="border-2 border-gray-100 shadow-sm rounded-full inline-block">
-              <Avatar src={avatarUrl} alt={username} size={80} />
-            </div>
-            <div className="flex-1">
-              <label htmlFor="avatar-upload" className="label text-sm font-semibold">
-                Profile Picture
-              </label>
-              <input
-                id="avatar-upload"
-                type="file"
-                accept="image/*"
-                onChange={onFileChange}
-                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-              />
-              {uploading && (
-                <p className="text-xs text-blue-500 mt-2 animate-pulse">Processing image...</p>
-              )}
-            </div>
+      <div className="container max-w-6xl mx-auto px-4 pt-12 relative z-10">
+        
+        {/* --- TOP SECTION: PLAYER CARD --- */}
+        <header className="flex flex-col md:flex-row items-center gap-8 mb-12 bg-[#0a0a0c] border border-gray-800 p-8 rounded-3xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-4 opacity-5">
+            <ShieldCheck size={120} />
           </div>
 
-          <hr className="border-gray-100" />
+          <div className="relative group">
+            <Avatar src={avatarUrl} alt={username} size={120} className="border-4 border-blue-600 shadow-2xl shadow-blue-600/20" />
+            <label htmlFor="avatar-upload" className="absolute bottom-0 right-0 p-2 bg-blue-600 rounded-full cursor-pointer hover:scale-110 transition-transform shadow-lg">
+              <Camera size={16} />
+              <input id="avatar-upload" type="file" hidden onChange={onFileChange} />
+            </label>
+          </div>
 
-          {/* Form Fields */}
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="username" className="label font-semibold">
-                Username
-              </label>
-              <Input
-                id="username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Enter your gaming handle"
-              />
+          <div className="flex-1 text-center md:text-left">
+            <div className="flex items-center justify-center md:justify-start gap-3 mb-2">
+              <h1 className="text-4xl font-black uppercase italic tracking-tighter">{username || 'New Recruit'}</h1>
+              <CheckCircle2 size={20} className="text-blue-500" />
             </div>
+            <p className="text-gray-500 font-bold text-xs uppercase tracking-widest mb-6">Pro League Member • Joined {new Date().getFullYear()}</p>
+            
+            <div className="flex flex-wrap justify-center md:justify-start gap-4">
+              <StatMini icon={<TrendingUp size={14}/>} label="Points" value={stats.points} />
+              <StatMini icon={<Swords size={14}/>} label="Wins" value={stats.wins} color="text-green-500" />
+              <StatMini icon={<Medal size={14}/>} label="Badges" value={achievements.length} color="text-yellow-500" />
+            </div>
+          </div>
+        </header>
 
-            <div>
-              <label className="label font-semibold mb-2 block">Gaming Platforms</label>
-              <div className="grid grid-cols-2 gap-3">
-                {availablePlatforms.map((p) => (
-                  <label
-                    key={p}
-                    className={`flex items-center space-x-2 border p-3 rounded-lg cursor-pointer transition-colors ${platforms.includes(p) ? 'bg-blue-50 border-blue-200' : 'hover:bg-gray-50'}`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={platforms.includes(p)}
-                      onChange={() => togglePlatform(p)}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="text-sm font-medium">{p}</span>
-                  </label>
-                ))}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          
+          {/* --- LEFT COLUMN: SETTINGS --- */}
+          <div className="lg:col-span-1 space-y-8">
+            <section>
+              <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-500 mb-4 flex items-center gap-2">
+                <User size={14} /> Profile Settings
+              </h3>
+              <Card className="bg-[#0a0a0c] border-gray-800 p-6 rounded-2xl">
+                <div className="space-y-6">
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2 block">Display Handle</label>
+                    <Input value={username} onChange={(e) => setUsername(e.target.value)} className="bg-black border-gray-800 font-bold" />
+                  </div>
+                  <Button onClick={save} className="w-full bg-blue-600 hover:bg-blue-500 py-6 rounded-xl font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all">
+                    <Save size={18} /> {uploading ? 'Processing...' : 'Sync Profile'}
+                  </Button>
+                  {msg && <div className={`p-3 rounded-xl text-[10px] font-black uppercase text-center border ${msg.type === 'success' ? 'bg-green-500/5 border-green-500/20 text-green-500' : 'bg-red-500/5 border-red-500/20 text-red-500'}`}>{msg.text}</div>}
+                </div>
+              </Card>
+            </section>
+
+            {/* PLATFORMS */}
+            <section>
+                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-500 mb-4">Network Platforms</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  {availablePlatforms.map((p) => (
+                    <button key={p} onClick={() => togglePlatform(p)} className={`p-3 rounded-xl border transition-all text-[10px] font-black uppercase tracking-tighter flex items-center gap-2 ${platforms.includes(p) ? 'bg-blue-600/10 border-blue-600 text-white' : 'bg-black/40 border-gray-800 text-gray-600'}`}>
+                      <Gamepad2 size={12} /> {p}
+                    </button>
+                  ))}
+                </div>
+            </section>
+          </div>
+
+          {/* --- RIGHT COLUMN: ACHIEVEMENTS & HISTORY --- */}
+          <div className="lg:col-span-2 space-y-12">
+            
+            {/* ACHIEVEMENT SHOWCASE */}
+            <section>
+              <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-500 mb-6 flex items-center gap-2">
+                <Medal size={14} /> Achievement Showcase
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {Object.entries(BADGE_MAP).map(([key, info]) => {
+                  const isEarned = achievements.includes(key);
+                  return (
+                    <div key={key} className={`relative p-5 rounded-2xl border transition-all overflow-hidden ${isEarned ? 'bg-[#0a0a0c] border-blue-500/30' : 'bg-black/20 border-white/5 opacity-40'}`}>
+                      <div className="flex items-start gap-4">
+                        <div className={`p-3 rounded-xl bg-gray-900 border border-white/5 ${isEarned ? 'text-white' : 'text-gray-700'}`}>
+                          {isEarned ? info.icon : <Lock size={20} />}
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-black uppercase italic tracking-tight">{info.label}</h4>
+                          <p className="text-[10px] text-gray-500 font-bold leading-tight mt-1">{info.desc}</p>
+                        </div>
+                      </div>
+                      {isEarned && (
+                        <div className="absolute -bottom-1 -right-1 opacity-10">
+                          <CheckCircle2 size={60} />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            </div>
-          </div>
+            </section>
 
-          {/* Action & Feedback */}
-          <div className="pt-4 space-y-4">
-            <Button onClick={save} className="w-full py-3 text-lg font-bold">
-              Save Changes
-            </Button>
-
-            {msg && (
-              <div
-                className={`p-3 rounded-md text-sm text-center ${msg.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}
-              >
-                {msg.text}
+            {/* MATCH HISTORY */}
+            <section>
+              <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-500 mb-6 flex items-center gap-2">
+                <History size={14} /> Combat Log
+              </h3>
+              <div className="space-y-3">
+                {matches.length > 0 ? matches.map((m) => (
+                  <div key={m.id} className="bg-[#0a0a0c] border border-gray-800/50 p-5 rounded-2xl flex items-center justify-between group hover:border-blue-500/50 transition-all">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 bg-gray-900 rounded-lg flex items-center justify-center text-blue-500 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                        <Swords size={20} />
+                      </div>
+                      <div>
+                        <p className="font-bold text-sm uppercase tracking-tight">{m.tournaments?.name || 'Tournament Match'}</p>
+                        <p className="text-[10px] text-gray-600 font-black uppercase">{new Date(m.created_at).toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                    <span className={`px-3 py-1 rounded-md text-[9px] font-black uppercase ${m.status === 'completed' ? 'bg-green-500/10 text-green-500' : 'bg-blue-500/10 text-blue-500'}`}>
+                      {m.status}
+                    </span>
+                  </div>
+                )) : (
+                  <div className="py-12 text-center border-2 border-dashed border-gray-900 rounded-3xl opacity-30">
+                    <p className="text-[10px] font-black uppercase tracking-widest">No match records found</p>
+                  </div>
+                )}
               </div>
-            )}
+            </section>
           </div>
+
         </div>
-      </Card>
+      </div>
+    </div>
+  );
+}
+
+function StatMini({ icon, label, value, color = "text-white" }: any) {
+  return (
+    <div className="bg-black/40 border border-gray-800 px-4 py-2 rounded-xl flex items-center gap-3">
+      <div className="text-blue-500">{icon}</div>
+      <div>
+        <p className="text-[8px] font-black text-gray-600 uppercase tracking-widest leading-none mb-1">{label}</p>
+        <p className={`text-sm font-black italic leading-none ${color}`}>{value.toLocaleString()}</p>
+      </div>
     </div>
   );
 }

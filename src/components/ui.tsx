@@ -50,24 +50,30 @@ export function SectionTitle({
 export function Avatar({
   src,
   alt,
-  size = 32
+  size = 32,
+  className = "", // Added className prop
 }: {
   src?: string | null;
   alt: string;
   size?: number;
+  className?: string; // Added to type definition
 }) {
   const fallback = alt?.[0]?.toUpperCase() || '?';
+  
+  // Base classes for both image and fallback
+  const baseClasses = `rounded-full object-cover shrink-0 ${className}`;
+
   return src ? (
     <img
       src={src}
       alt={alt}
       style={{ width: size, height: size }}
-      className="rounded-full object-cover border border-gray-200"
+      className={`${baseClasses} border border-gray-800`} // Updated to a darker border for the gaming theme
     />
   ) : (
     <div
       style={{ width: size, height: size }}
-      className="rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-sm font-medium"
+      className={`${baseClasses} bg-gray-800 text-gray-400 flex items-center justify-center text-sm font-bold border border-gray-700`}
     >
       {fallback}
     </div>
