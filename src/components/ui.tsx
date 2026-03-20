@@ -33,8 +33,18 @@ export function Card({ className, children }: React.PropsWithChildren<{ classNam
   return <div className={clsx('card', className)}>{children}</div>;
 }
 
-export function SectionTitle({ children }: { children: React.ReactNode }) {
-  return <h2 className="text-xl font-semibold mb-3">{children}</h2>;
+export function SectionTitle({
+  children,
+  className = '',
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <h2 className={`text-xl font-semibold ${className}`}>
+      {children}
+    </h2>
+  );
 }
 
 export function Avatar({

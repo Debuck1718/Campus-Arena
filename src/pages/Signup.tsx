@@ -34,6 +34,7 @@ export function Signup() {
       email, 
       password,
       options: {
+        emailRedirectTo: 'https://campus-arena.vercel.app/login',
         data: {
           username,
           platform: platforms // Sending the array
