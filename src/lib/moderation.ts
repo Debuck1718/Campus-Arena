@@ -4,9 +4,10 @@ import { supabase } from '../supabaseClient';
  */
 
 export async function getAllUsers() {
+  // Removed 'email' as it doesn't exist on the profiles table
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, username, email, platform, avatar_url, banned, created_at')
+    .select('id, username, platform, avatar_url, role, banned, created_at')
     .order('created_at', { ascending: false });
     
   if (error) throw error;
@@ -105,10 +106,9 @@ export async function removeMatchResult(resultId: string) {
 export async function getEvidenceUrls(paths: string[]) {
   if (!paths || paths.length === 0) return [];
   
-  // Generates signed URLs for an array of evidence paths
   const { data, error } = await supabase.storage
     .from('evidence')
-    .createSignedUrls(paths, 3600); // 1 hour expiry
+    .createSignedUrls(paths, 3600);
 
   if (error) throw error;
   return data.map(item => item.signedUrl);

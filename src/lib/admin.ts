@@ -1,19 +1,34 @@
 import { supabase } from '../supabaseClient';
 
-// Call this function with a user id to make them an admin
-export async function makeAdmin(profileId: string, role: 'admin' | 'moderator' = 'admin') {
-  const { error } = await supabase.from('admin_roles').insert({ profile_id: profileId, role });
+/**
+ * Updates a user's role in the profiles table.
+ * Used to promote players to Admin or Moderator.
+ */
+export async function makeAdmin(profileId: string, role: 'admin' | 'moderator' | 'user' = 'admin') {
+  const { error } = await supabase
+    .from('profiles')
+    .update({ role })
+    .eq('id', profileId);
+
   if (error) throw error;
   return true;
 }
 
-// Check if the current user is admin
-export async function isCurrentUserAdmin() {
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
+/**
+ * Checks if the current authenticated user has administrative privileges.
+ */
+export async function isCurrentUserAdmin(): Promise<boolean> {
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) return false;
-  const { data, error } = await supabase.rpc('is_admin', { p: user.id });
-  if (error) throw error;
-  return !!data;
+
+  const { data: profile, error } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
+  if (error || !profile) return false;
+
+  // Returns true if role is exactly 'admin'
+  return profile.role === 'admin';
 }
