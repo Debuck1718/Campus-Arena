@@ -1,6 +1,7 @@
 import React from 'react';
 import { supabase } from '../supabaseClient';
 import { useNavigate, Link } from 'react-router-dom';
+import { isCurrentUserAdmin } from '../lib/admin'; // Import our admin check
 import { Button, Card, Input, Select } from '../components/ui';
 import { 
   Trophy, 
@@ -13,7 +14,8 @@ import {
   CheckCircle2, 
   Copy, 
   ExternalLink,
-  Layers
+  Layers,
+  ShieldAlert
 } from 'lucide-react';
 
 export function CreateTournament() {
@@ -29,26 +31,34 @@ export function CreateTournament() {
   const [games, setGames] = React.useState<any[]>([]);
   
   // UI State
+  const [isAdmin, setIsAdmin] = React.useState<boolean | null>(null);
   const [err, setErr] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [createdId, setCreatedId] = React.useState<string | null>(null);
   const [copied, setCopied] = React.useState(false);
 
+  // --- SECURITY CHECK ---
   React.useEffect(() => {
-    supabase.from('games').select('id,name,slug').then(({ data }) => setGames(data || []));
-  }, []);
+    async function checkAccess() {
+      const adminStatus = await isCurrentUserAdmin();
+      if (!adminStatus) {
+        // Not an admin? Redirect to tournaments list
+        nav('/tournaments');
+        return;
+      }
+      setIsAdmin(true);
+      
+      // Load games only if authorized
+      const { data } = await supabase.from('games').select('id,name,slug');
+      setGames(data || []);
+    }
+    checkAccess();
+  }, [nav]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setErr(null);
     setLoading(true);
-    
-    const { data: sess } = await supabase.auth.getUser();
-    if (!sess.user) { 
-      setErr('Authentication required to host tournaments.'); 
-      setLoading(false); 
-      return; 
-    }
     
     const { data, error } = await supabase.rpc('create_tournament', {
       p_name: name,
@@ -68,7 +78,7 @@ export function CreateTournament() {
       return; 
     }
     
-    setCreatedId(data); // Trigger the success modal
+    setCreatedId(data);
   }
 
   const copyLink = () => {
@@ -78,14 +88,21 @@ export function CreateTournament() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // While checking authorization, show a clean loader
+  if (isAdmin === null) {
+    return (
+      <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center">
+        <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mb-4" />
+        <span className="text-blue-500 font-black tracking-[0.4em] text-[10px] uppercase animate-pulse">Verifying Credentials</span>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#050505] text-gray-100 pb-20 relative overflow-hidden">
-      {/* Background Ambient Glow */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-blue-600/5 blur-[140px] rounded-full pointer-events-none" />
 
       <div className="container max-w-3xl mx-auto px-4 pt-12 relative z-10">
-        
-        {/* Back Navigation */}
         <button 
           onClick={() => nav('/tournaments')} 
           className="flex items-center gap-2 text-gray-500 hover:text-white transition-all mb-8 group"
@@ -100,7 +117,10 @@ export function CreateTournament() {
               <Trophy size={28} className="text-white" />
             </div>
             <div className="flex flex-col">
-              <span className="text-[10px] font-black text-blue-500 uppercase tracking-[0.4em] mb-1">Deployment Phase</span>
+              <div className="flex items-center gap-2 mb-1">
+                <ShieldAlert size={10} className="text-blue-500" />
+                <span className="text-[10px] font-black text-blue-500 uppercase tracking-[0.4em]">Admin Authorized</span>
+              </div>
               <h1 className="text-4xl md:text-5xl font-black uppercase italic tracking-tighter text-white">
                 Create <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400">Tournament</span>
               </h1>
@@ -110,7 +130,6 @@ export function CreateTournament() {
 
         <Card className="bg-[#0a0a0c] border-gray-800 p-8 md:p-12 rounded-3xl shadow-2xl border-t border-t-white/5 relative overflow-hidden">
           <form onSubmit={submit} className="relative z-10 grid grid-cols-1 sm:grid-cols-2 gap-10">
-            
             {/* Tournament Name */}
             <div className="sm:col-span-2 space-y-3">
               <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.25em] text-blue-500">
@@ -203,7 +222,7 @@ export function CreateTournament() {
 
             {/* Error Handling */}
             {err && (
-              <div className="sm:col-span-2 p-4 bg-red-500/5 border border-red-500/20 rounded-xl text-[10px] text-red-500 font-black uppercase tracking-[0.2em] text-center">
+              <div className="sm:col-span-2 p-4 bg-red-500/5 border border-red-500/20 rounded-xl text-[10px] text-red-500 font-black uppercase tracking-[0.2em] text-center animate-shake">
                 Critical System Error: {err}
               </div>
             )}

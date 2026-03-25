@@ -4,7 +4,7 @@ import { supabase } from '../supabaseClient';
 import { Card, Avatar } from '../components/ui';
 import { Trophy, Medal, Flame, Award, TrendingUp, User } from 'lucide-react';
 
-// --- Database Logic: Joining Rankings + Profiles ---
+// --- Database Logic: Updated to use profile_id ---
 async function fetchLeaderboard() {
   const { data, error } = await supabase
     .from('rankings')
@@ -12,8 +12,8 @@ async function fetchLeaderboard() {
       wins, 
       losses, 
       points,
-      player_id,
-      profiles:player_id (
+      profile_id,
+      profiles:profile_id (
         username,
         avatar_url
       )
@@ -45,13 +45,9 @@ export function Leaderboard() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-gray-100 pb-24 relative overflow-hidden">
-      {/* Dynamic Background Glows */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-blue-600/5 blur-[160px] rounded-full pointer-events-none" />
-      <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-cyan-500/5 blur-[120px] rounded-full pointer-events-none" />
-
+      
       <div className="container mx-auto px-4 pt-16 relative z-10">
-        
-        {/* Header Section */}
         <header className="text-center mb-16">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/10 mb-6 backdrop-blur-md">
             <Flame size={14} className="text-blue-500 animate-pulse" />
@@ -60,9 +56,6 @@ export function Leaderboard() {
           <h1 className="text-6xl md:text-8xl font-black uppercase italic tracking-tighter text-white mb-4 leading-none">
             Hall of <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-cyan-400">Legends</span>
           </h1>
-          <p className="text-gray-500 max-w-2xl mx-auto font-medium text-sm md:text-base italic leading-relaxed">
-            The elite tier of competitors. Ranked by accumulated combat points across all tournament brackets.
-          </p>
         </header>
 
         {/* --- THE PODIUM (Top 3) --- */}
@@ -74,7 +67,6 @@ export function Leaderboard() {
 
         {/* --- THE RANKING LIST --- */}
         <div className="max-w-5xl mx-auto">
-          {/* List Header */}
           <div className="grid grid-cols-12 px-8 py-4 mb-4 text-[9px] font-black uppercase tracking-[0.3em] text-gray-600 border-b border-gray-900">
             <div className="col-span-1">Rank</div>
             <div className="col-span-5 md:col-span-6">Contender</div>
@@ -92,10 +84,10 @@ export function Leaderboard() {
 
               return (
                 <div 
-                  key={item.player_id}
+                  key={item.profile_id} // Updated key
                   className="group grid grid-cols-12 items-center px-8 py-5 bg-[#0a0a0c]/50 border border-gray-800/40 rounded-2xl hover:border-blue-500/40 hover:bg-blue-600/[0.03] transition-all duration-300"
                 >
-                  <div className="col-span-1 font-black text-gray-800 group-hover:text-blue-500 transition-colors italic text-xl">
+                  <div className="col-span-1 font-black text-gray-800 group-hover:text-blue-500 italic text-xl">
                     {index + 4}
                   </div>
                   
@@ -137,7 +129,7 @@ export function Leaderboard() {
   );
 }
 
-// --- Podium Sub-Component ---
+// --- Podium Sub-Component (Updated key usage) ---
 function PodiumPosition({ rankData, rank, height, color, glow, featured = false }: any) {
   const profile = rankData.profiles;
   return (

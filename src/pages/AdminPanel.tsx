@@ -1,5 +1,6 @@
 import React from 'react';
 import { makeAdmin, isCurrentUserAdmin } from '../lib/admin';
+import { useNavigate } from 'react-router-dom'; // Added for navigation
 import { 
   getAllUsers, 
   removeUser, 
@@ -25,13 +26,18 @@ import {
   Loader2,
   Gavel,
   Clock,
-  ExternalLink
+  ExternalLink,
+  PlusCircle,
+  Gamepad2,
+  Zap
 } from 'lucide-react';
 import { Button, Card, Input } from '../components/ui';
 
-type AdminTab = 'users' | 'matches' | 'disputes';
+// Updated Tab Types
+type AdminTab = 'users' | 'matches' | 'disputes' | 'tournaments';
 
 export function AdminPanel() {
+  const nav = useNavigate();
   const [isAdmin, setIsAdmin] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState<AdminTab>('users');
   const [userId, setUserId] = React.useState('');
@@ -42,6 +48,7 @@ export function AdminPanel() {
   const [users, setUsers] = React.useState<any[]>([]);
   const [results, setResults] = React.useState<any[]>([]);
   const [disputes, setDisputes] = React.useState<any[]>([]);
+  const [tournaments, setTournaments] = React.useState<any[]>([]); // New State
   const [evidenceUrls, setEvidenceUrls] = React.useState<Record<string, string>>({});
   
   const [modal, setModal] = React.useState<{ 
@@ -53,7 +60,7 @@ export function AdminPanel() {
   React.useEffect(() => {
     isCurrentUserAdmin().then(setIsAdmin).catch(() => setIsAdmin(false));
     fetchData();
-  }, [activeTab]); // Refetch when tab changes
+  }, [activeTab]);
 
   async function fetchData() {
     setLoading(true);
@@ -64,7 +71,6 @@ export function AdminPanel() {
       } else if (activeTab === 'matches') {
         const matchData = await getAllMatchResults();
         setResults(matchData);
-        // Fetch signed URLs for match screenshots
         const urls: Record<string, string> = {};
         for (const res of matchData) {
           if (res.screenshot_url) {
@@ -76,6 +82,13 @@ export function AdminPanel() {
       } else if (activeTab === 'disputes') {
         const disputeData = await getAllDisputes();
         setDisputes(disputeData);
+      } else if (activeTab === 'tournaments') {
+        // Fetch current tournaments for management
+        const { data } = await supabase
+          .from('tournaments')
+          .select('*, games(name)')
+          .order('created_at', { ascending: false });
+        setTournaments(data || []);
       }
     } catch (e) {
       console.error("Admin Fetch Error:", e);
@@ -112,19 +125,42 @@ export function AdminPanel() {
 
       <div className="container max-w-6xl mx-auto px-4 pt-12 relative z-10">
         <header className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <span className="px-2 py-0.5 bg-red-600 text-[9px] font-black uppercase rounded italic tracking-wider">Restricted Area</span>
-            <h1 className="text-4xl font-black uppercase italic tracking-tighter">Command Center</h1>
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <span className="px-2 py-0.5 bg-red-600 text-[9px] font-black uppercase rounded italic tracking-wider">Restricted Area</span>
+                <h1 className="text-4xl font-black uppercase italic tracking-tighter">Command Center</h1>
+              </div>
+              <p className="text-gray-500 text-[10px] font-bold uppercase tracking-[0.2em]">Overseeing CampusArena Operations</p>
+            </div>
+            
+            {/* Quick Actions */}
+            <div className="flex gap-3">
+              <Button 
+                onClick={() => nav('/admin/games')}
+                variant="outline"
+                className="border-gray-800 text-gray-400 font-black uppercase text-[9px] tracking-widest flex items-center gap-2"
+              >
+                <Gamepad2 size={14} /> Game Registry
+              </Button>
+              <Button 
+                onClick={() => nav('/create-tournament')}
+                className="bg-blue-600 text-white font-black uppercase text-[9px] tracking-widest flex items-center gap-2 shadow-[0_0_20px_rgba(37,99,235,0.2)]"
+              >
+                <PlusCircle size={14} /> New Arena
+              </Button>
+            </div>
           </div>
           
-          {/* Internal Navigation */}
-          <nav className="flex gap-4 mt-8 border-b border-white/5">
+          <nav className="flex gap-4 mt-8 border-b border-white/5 overflow-x-auto">
             <TabButton active={activeTab === 'users'} onClick={() => setActiveTab('users')} icon={<Users size={14}/>} label="Operatives" />
-            <TabButton active={activeTab === 'matches'} onClick={() => setActiveTab('matches')} icon={<Trophy size={14}/>} label="Combat Logs" />
-            <TabButton active={activeTab === 'disputes'} onClick={() => setActiveTab('disputes')} icon={<Gavel size={14}/>} label="Active Disputes" />
+            <TabButton active={activeTab === 'tournaments'} onClick={() => setActiveTab('tournaments')} icon={<Trophy size={14}/>} label="Arenas" />
+            <TabButton active={activeTab === 'matches'} onClick={() => setActiveTab('matches')} icon={<Zap size={14}/>} label="Combat Logs" />
+            <TabButton active={activeTab === 'disputes'} onClick={() => setActiveTab('disputes')} icon={<Gavel size={14}/>} label="Disputes" />
           </nav>
         </header>
 
+        {/* --- USERS TAB --- */}
         {activeTab === 'users' && (
           <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
             <section className="mb-12">
@@ -163,6 +199,26 @@ export function AdminPanel() {
           </div>
         )}
 
+        {/* --- TOURNAMENTS TAB --- */}
+        {activeTab === 'tournaments' && (
+          <AdminTable headers={['Arena Name', 'Game', 'Players', 'Actions']}>
+            {loading ? <LoadingRow colSpan={4} /> : tournaments.map(t => (
+              <tr key={t.id} className="hover:bg-white/[0.01] border-b border-white/5">
+                <td className="p-5 font-bold uppercase italic text-sm">{t.name}</td>
+                <td className="p-5 text-[10px] font-black uppercase text-blue-500">{t.games?.name || 'Unknown'}</td>
+                <td className="p-5 text-[10px] font-mono text-gray-500">{t.max_players} CAP</td>
+                <td className="p-5 text-right">
+                  <div className="flex justify-end gap-3">
+                    <ActionButton color="text-blue-500" icon={<ExternalLink size={16}/>} onClick={() => nav(`/tournaments/${t.id}`)} />
+                    <ActionButton color="text-red-600" icon={<Trash2 size={16}/>} onClick={() => setModal({ isOpen: true, message: `Delete Tournament: ${t.name}?`, onConfirm: async () => { await supabase.from('tournaments').delete().eq('id', t.id); fetchData(); } })} />
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </AdminTable>
+        )}
+
+        {/* --- MATCHES TAB --- */}
         {activeTab === 'matches' && (
           <AdminTable headers={['Match Hash', 'Intel Preview', 'Oversight']}>
             {loading ? <LoadingRow colSpan={3} /> : results.map(r => (
@@ -183,15 +239,12 @@ export function AdminPanel() {
           </AdminTable>
         )}
 
+        {/* --- DISPUTES TAB --- */}
         {activeTab === 'disputes' && (
           <AdminTable headers={['Reporter', 'Category', 'Status', 'Oversight']}>
             {loading ? <LoadingRow colSpan={4} /> : disputes.map(d => (
               <tr key={d.id} className="hover:bg-white/[0.01] border-b border-white/5">
-                <td className="p-5">
-                  <div className="flex items-center gap-3">
-                    <span className="font-bold uppercase italic text-sm">{d.reporter?.username}</span>
-                  </div>
-                </td>
+                <td className="p-5 font-bold uppercase italic text-sm">{d.reporter?.username}</td>
                 <td className="p-5">
                   <span className="text-[10px] font-black uppercase px-2 py-1 bg-white/5 rounded border border-white/10 text-gray-400">
                     {d.category}
@@ -204,11 +257,9 @@ export function AdminPanel() {
                     <Clock size={12} /> {d.status}
                   </span>
                 </td>
-                <td className="p-5 text-right">
-                  <div className="flex justify-end gap-3">
-                    <ActionButton color="text-blue-500" icon={<ExternalLink size={16}/>} onClick={() => {/* Navigate to details */}} />
-                    <ActionButton color="text-green-500" icon={<CheckCircle size={16}/>} onClick={async () => { await updateDisputeStatus(d.id, 'resolved'); fetchData(); }} />
-                  </div>
+                <td className="p-5 text-right flex justify-end gap-3">
+                  <ActionButton color="text-blue-500" icon={<ExternalLink size={16}/>} onClick={() => {/* Navigate to details */}} />
+                  <ActionButton color="text-green-500" icon={<CheckCircle size={16}/>} onClick={async () => { await updateDisputeStatus(d.id, 'resolved'); fetchData(); }} />
                 </td>
               </tr>
             ))}
