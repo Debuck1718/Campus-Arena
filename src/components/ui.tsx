@@ -59,7 +59,7 @@ export function Avatar({
   className?: string; // Added to type definition
 }) {
   const fallback = alt?.[0]?.toUpperCase() || '?';
-  
+
   // Base classes for both image and fallback
   const baseClasses = `rounded-full object-cover shrink-0 ${className}`;
 
@@ -117,8 +117,14 @@ export function Navbar({ onLogout }: { onLogout?: () => void }) {
           <a href="/tournaments" className="text-gray-700 hover:text-primary-600">
             Tournaments
           </a>
+          <a href="/leaderboard" className="text-gray-700 hover:text-primary-600">
+            Rankings
+          </a>
           <a href="/tournaments/create" className="text-gray-700 hover:text-primary-600">
             Create
+          </a>
+          <a href="/support" className="text-gray-700 hover:text-primary-600">
+            Support
           </a>
           <a href="/profile" className="text-gray-700 hover:text-primary-600">
             Profile
@@ -201,8 +207,14 @@ export function Navbar({ onLogout }: { onLogout?: () => void }) {
             <a href="/tournaments" className="text-gray-700 hover:text-primary-600">
               Tournaments
             </a>
+            <a href="/leaderboard" className="text-gray-700 hover:text-primary-600">
+              Rankings
+            </a>
             <a href="/tournaments/create" className="text-gray-700 hover:text-primary-600">
               Create
+            </a>
+            <a href="/support" className="text-gray-700 hover:text-primary-600">
+              Support
             </a>
             <a href="/profile" className="text-gray-700 hover:text-primary-600">
               Profile

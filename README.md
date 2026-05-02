@@ -1,6 +1,7 @@
 CampusArena
 
 Table of Contents
+
 - Overview
 - Requirements
 - Goals
@@ -29,20 +30,24 @@ Overview
 CampusArena is a competitive e-sports tournament platform for students. Players create profiles, join tournaments, play matches, submit results with proof, and climb rankings. Organizers manage formats, resolve disputes, and run events with low ops overhead.
 
 Contact
+
 - Maintainer: Evans Buckman
 - Email: evans.buckman55@gmail.com
 
 Requirements
+
 - Node.js 18+ and npm 9+
 - Modern browser (Chrome, Edge, Firefox, Safari) for local testing
 - Supabase project with Auth and Postgres enabled
 
 Goals
+
 - Make it easy to organize fair, fun tournaments on campus
 - Provide transparent brackets, results, and rankings
 - Scale from dorm events to inter-campus cups
 
 Core features
+
 - Auth + Profiles (Supabase Auth, profiles table)
 - Optional profile pictures (avatars) with image upload and preview
 - Tournaments lifecycle: create → open → lock → start → complete
@@ -55,12 +60,14 @@ Core features
 - Admin: overrides, audit logs, prizes
 
 Tech stack
+
 - Backend: Supabase (Postgres + Auth + Storage), SQL RPCs/triggers, strict RLS
 - Frontend: React + Tailwind (Vite)
 - Hosting: Vercel (frontend), Supabase (backend)
 - Storage: private bucket for screenshots and avatars (signed URLs)
 
 Data model (high level)
+
 - profiles, games
 - tournaments, tournament_players
 - matches, match_results
@@ -73,8 +80,9 @@ Data model (high level)
 - admin_audit_logs, webhooks
 
 Setup (Supabase + DB)
-1) Create a Supabase project
-2) Open SQL editor and apply migrations in order:
+
+1. Create a Supabase project
+2. Open SQL editor and apply migrations in order:
    1. supabase/migrations/0001_init.sql
    2. supabase/migrations/0002_planned_improvements.sql
    3. supabase/migrations/0003_security_and_bracket_hardening.sql
@@ -83,13 +91,14 @@ Setup (Supabase + DB)
    6. supabase/migrations/0006_automation_followups.sql
    7. supabase/migrations/0007_groups_and_knockout.sql
    8. supabase/migrations/0009_scheduling_and_reminders.sql
-3) Create private Storage buckets:
-   - match-screenshots (private): for match proof images
+3. Create private Storage buckets:
+   - match-screenshots (private): for match proof images and videos. The app uploads evidence files here and stores only the object path in `match_results.screenshot_url`.
    - avatars (private): for user profile pictures
-   Note: Ensure authenticated users can upload to these buckets (Storage policies). Keep buckets private and access images via signed URLs only. Limit uploads to image/* MIME types and ~5 MB for best UX.
-4) Seed check: select * from games;
+     Note: Ensure authenticated users can upload to these buckets (Storage policies). Keep buckets private and access files via signed URLs only. Limit uploads to image/_ and video/_ MIME types and ~5 MB for best UX.
+4. Seed check: select \* from games;
 
 Local development
+
 - Prereqs: Node 18+, npm, Supabase account (CLI optional), Git
 - Clone: git clone <this-repo> && cd Campus-Arena
 - Install: npm install
@@ -100,13 +109,15 @@ Local development
 - Start frontend: npm run dev
 
 Commands (cheatsheet)
-- npm run dev           # start Vite dev server
-- npm run build         # type-check then build for production
-- npm run preview       # preview production build
-- npm run typecheck     # TypeScript check (no emit)
-- npm run lint          # lint placeholder (configure ESLint/Prettier later)
+
+- npm run dev # start Vite dev server
+- npm run build # type-check then build for production
+- npm run preview # preview production build
+- npm run typecheck # TypeScript check (no emit)
+- npm run lint # lint placeholder (configure ESLint/Prettier later)
 
 Environment management
+
 - Development env: .env.local (not committed)
 - Production env: use platform env vars (e.g., Vercel) or .env.production.local
 - Required:
@@ -115,19 +126,23 @@ Environment management
 - After changing env vars, restart the dev server for changes to take effect.
 
 Frontend Quick Start
+
 - Ensure .env.local has VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY
 - In Supabase Storage, create private buckets: match-screenshots and avatars
 - Run: npm install && npm run dev
 - Sign up via /signup (this creates your profile row)
 - Create a tournament at /tournaments/create, then join it and start single elimination
-- Submit a result to see the bracket progress and rankings update
+- Submit a result at /tournaments/:id/submit/:matchId; the frontend uploads proof to the private `match-screenshots` bucket and saves the storage path in `match_results.screenshot_url`
+- Admins can preview submitted evidence from the Admin Panel Matches tab using on-demand signed URLs
 
 UI/Frontend
+
 - Styling: Tailwind CSS with reusable primitives (Button, Card, Input, Select, Avatar, Navbar)
 - Responsive: mobile-first layouts with grids and flex; sticky Navbar
 - Personalization: Profile page supports optional avatar upload and preview; avatars surface in Dashboard and Bracket
 
 Frontend routes
+
 - /: Home
 - /login: Login
 - /signup: Signup
@@ -140,23 +155,25 @@ Frontend routes
 - /tournaments/:id/submit/:matchId: Submit result for a match
 
 Key RPCs (cheat sheet)
+
 - create_tournament(name, slug, game_id, platform, format, max_players, visibility, rules, season_id) -> uuid
 - tournament_open(id), tournament_lock(id), tournament_start_single_elim(id), tournament_complete(id)
 - join_tournament(id), leave_tournament(id)
 - lock_and_generate_single_elim(id)
 - schedule_match_deadline(match_id, scheduled_at, deadline_at, window_hours)
 - report_no_show(match_id, reporter_id, reason, grace_hours)
-- 
-auto_resolve_pending_results(hours), process_expired_no_shows()
+- auto_resolve_pending_results(hours), process_expired_no_shows()
 - generate_groups(tournament_id, group_count, advance_per_group)
 - advance_groups_to_knockout(tournament_id, advance_per_group)
 
 Cron jobs (recommended)
+
 - Hourly: select auto_resolve_pending_results(12);
 - Hourly: select remind_upcoming_deadlines(24);
 - Every 2h: select process_expired_no_shows();
 
 Smoke test (post-migration)
+
 - Ensure your profiles row exists (id = auth.uid())
 - Create a tournament via RPC; join with test users
 - Run lock_and_generate_single_elim(t_id)
@@ -167,6 +184,7 @@ Smoke test (post-migration)
 - Groups: generate_groups → play group_matches → advance_groups_to_knockout
 
 API testing guide (SQL)
+
 - List games: select id, name, slug from games order by name;
 - Create tournament:
   select create_tournament('Campus Cup','campus-cup',(select id from games where slug='fc24'),'PlayStation','single_elim',8,'public',null,null);
@@ -189,7 +207,8 @@ API testing guide (SQL)
   select advance_groups_to_knockout(<tid>, 2);
 
 Performance tips
-- Use targeted selects with pagination; avoid select * in production paths.
+
+- Use targeted selects with pagination; avoid select \* in production paths.
 - Prefer RPCs for multi-step operations (bracket generation, progression) to reduce round trips.
 - Ensure indexes exist for frequent filters:
   - matches(tournament_id, round_number, match_number), matches(status), matches(deadline_at)
@@ -197,19 +216,21 @@ Performance tips
 - Store screenshots in Storage, not DB; keep only signed URLs in match_results.
 
 Troubleshooting
+
 - RLS: authenticate and ensure a matching profiles row; add your profile_id to admin_roles for admin tasks
 - Missing function/relation: verify all migrations ran in order
-- Storage: match-screenshots bucket must be private; access via signed URLs
+- Storage: match-screenshots bucket must be private; evidence is stored as a bucket object path and previewed via signed URLs
 
 Architecture diagram
 Frontend (React/Vite) ── Supabase JS ──> Supabase (Auth + Postgres + Storage)
-                                       ├─ Tables: profiles, tournaments, matches, results, rankings, ...
-                                       ├─ RPCs/Functions: create_tournament, lock_and_generate_single_elim, ...
-                                       ├─ Triggers: advance_winner, progress_bracket_on_match_complete, ...
-                                       ├─ RLS: row ownership, admin_roles via is_admin()
-                                       └─ Storage: match-screenshots (private, signed URLs)
+├─ Tables: profiles, tournaments, matches, results, rankings, ...
+├─ RPCs/Functions: create_tournament, lock_and_generate_single_elim, ...
+├─ Triggers: advance_winner, progress_bracket_on_match_complete, ...
+├─ RLS: row ownership, admin_roles via is_admin()
+└─ Storage: match-screenshots (private, signed URLs)
 
 Security model (RLS overview)
+
 - profiles: read-all; users insert/update only their own (id = auth.uid()).
 - tournaments: public read; insert authenticated; update by creator or admin (is_admin()).
 - tournament_players: public read; users can join/leave themselves before lock.
@@ -221,11 +242,13 @@ Security model (RLS overview)
 - seasons/members and prizes/tournament_prizes: public read; admin manage.
 
 Data privacy and security
+
 - Screenshots and avatars are stored in private buckets and served via time-limited signed URLs.
 - All sensitive write operations are enforced at the database level via RLS.
 - Only authenticated users can upload to Storage; consider scanning uploads and restricting MIME types client-side.
 
 Maintainer runbook
+
 - Promote a user to admin:
   insert into admin_roles(profile_id, role) values ('<profile_uuid>', 'admin') on conflict (profile_id) do update set role='admin';
 - Resolve a dispute (mark resolved):
@@ -239,6 +262,7 @@ Maintainer runbook
   select tournament_complete('<tournament_uuid>'::uuid);
 
 Roadmap
+
 - P0 Foundations: schema, RLS, ops
 - P1 MVP Single Elim end-to-end
 - P2 Double Elim + generalized bracket engine
@@ -251,6 +275,7 @@ Roadmap
 - P9 Monetization (prizes, sponsorships)
 
 Contributing
+
 - Branch from main, use Conventional Commits
   Examples:
   - feat(ui): add avatar upload to profile page
@@ -261,50 +286,61 @@ Contributing
 - Update README when adding migrations/RPCs
 
 License
+
 - MIT
 
 Project status
+
 - Ready for production deployment.
 
 Build commands
+
 - npm run typecheck
 - npm run build
 - npm run preview (to test the production build locally)
 
 Finalization checklist
 Database (Supabase)
+
 - [ ] Run all migrations in order (0001 → 0009).
 - [ ] Verify RLS policies allow intended reads/writes (profiles, tournaments, matches, results).
 - [ ] Confirm RPCs exist and run: create_tournament, join_tournament, leave_tournament, tournament_open/lock/start/complete, lock_and_generate_single_elim, generate_groups, advance_groups_to_knockout.
 - [ ] Storage buckets created (private): match-screenshots, avatars.
 
 Storage
+
 - [ ] Authenticated uploads permitted for both buckets (Storage policies).
 - [ ] Signed URLs generated for viewing images; direct public access disabled.
 
 Frontend
+
 - [ ] .env.local includes VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.
 - [ ] npm run typecheck passes, npm run build succeeds.
 - [ ] UI flows tested: signup/login, profile save (including optional avatar), create/join/start tournament, submit result, bracket updates, dashboard shows upcoming, match detail accessible.
 
 Go-Live guide
-1) Staging smoke test
+
+1. Staging smoke test
+
 - Provision a staging Supabase project and Vercel environment.
 - Set env vars (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY) in Vercel.
 - Deploy via Vercel (“Import Project”) or git push with Vercel integration.
 - Run through the smoke test in “Smoke test (post-migration)” and the Testing checklist.
 
-2) Production setup
+2. Production setup
+
 - Create production Supabase project, run migrations, and create Storage buckets (private).
 - Set Vercel Production env vars to the production Supabase values.
 - Redeploy main to production, verify routes and SPA fallback (vercel.json).
 
-3) Post-deploy checks
+3. Post-deploy checks
+
 - Confirm avatars and match screenshots upload and display (signed URLs).
 - Validate RLS by logging in as different users (cannot read/write other users’ private data).
 - Monitor logs and set alerts (optional).
 
 Known follow-ups (post-launch roadmap)
+
 - Double Elimination engine and advanced bracket visualization.
 - Admin console with bulk operations and rollback.
 - Email/push notifications (integrate with Supabase functions or third-party).

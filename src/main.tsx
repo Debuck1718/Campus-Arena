@@ -11,8 +11,12 @@ import { Tournaments } from './pages/Tournaments';
 import { TournamentDetail } from './pages/TournamentDetail';
 import { CreateTournament } from './pages/CreateTournament';
 import { Profile } from './pages/Profile';
+import { PublicProfile } from './pages/PublicProfile';
 import { SubmitResult } from './pages/SubmitResult';
 import { MatchDetail } from './pages/MatchDetail';
+import { Leaderboard } from './pages/Leaderboard';
+import { Support } from './pages/Support';
+import { GamesManagement } from './pages/GamesMangement';
 import { Navbar } from './components/ui';
 import { NotFound } from './pages/NotFound';
 import { AdminPanel } from './pages/AdminPanel';
@@ -30,7 +34,7 @@ function Home() {
   return (
     /* flex-col-reverse ensures image is on TOP for mobile, md:flex-row puts it on the RIGHT for desktop */
     <div className="flex flex-col-reverse md:flex-row items-center justify-between min-h-[80vh] gap-10 px-4 md:px-10">
-      
+
       {/* Left side: Text Content */}
       <section className="flex-1 max-w-2xl animate-in fade-in slide-in-from-bottom-5 duration-700">
         <div className="inline-block px-4 py-1 mb-6 text-sm font-semibold tracking-wide uppercase bg-blue-100 text-blue-600 rounded-full">
@@ -41,12 +45,12 @@ function Home() {
           <span className="text-blue-600">Celebrate</span>
         </h1>
         <p className="text-lg text-slate-600 mb-8 leading-relaxed">
-          The ultimate platform for students to showcase their skills. Join thrilling tournaments, 
-          track your progress, and become part of a vibrant campus community. 
+          The ultimate platform for students to showcase their skills. Join thrilling tournaments,
+          track your progress, and become part of a vibrant campus community.
           Whether you’re a casual player or a fierce competitor, there’s a place for you here.
         </p>
-        <Link 
-          to="/signup" 
+        <Link
+          to="/signup"
           className="inline-flex items-center justify-center bg-blue-600 text-white font-bold py-4 px-10 rounded-full shadow-lg shadow-blue-200 hover:bg-blue-700 hover:-translate-y-1 transition-all duration-300"
         >
           Get Started
@@ -62,14 +66,14 @@ function Home() {
             src={homeImg}
             alt="CampusArena Preview"
             className="relative w-full max-w-lg h-auto rounded-2xl animate-bounce-slow"
-            style={{ 
+            style={{
               animation: 'float 6s ease-in-out infinite',
-              filter: 'drop-shadow(0 20px 30px rgba(0,0,0,0.1))' 
+              filter: 'drop-shadow(0 20px 30px rgba(0,0,0,0.1))'
             }}
           />
         </div>
       </section>
-      
+
       {/* Inline styles for the floating animation */}
       <style>{`
         @keyframes float {
@@ -127,9 +131,11 @@ const router = createBrowserRouter([
       { index: true, element: <Home /> },
       { path: 'login', element: <Login /> },
       { path: 'admin', element: <AdminPanel /> },
+      { path: 'games', element: <GamesManagement /> },
       { path: 'signup', element: <Signup /> },
       { path: 'privacy', element: <Privacy /> },
       { path: 'terms', element: <Terms /> },
+      { path: 'profile/:id', element: <PublicProfile /> },
       {
         element: <AuthGate />, children: [
           { path: 'dashboard', element: <Dashboard /> },
@@ -139,6 +145,8 @@ const router = createBrowserRouter([
           { path: 'tournaments/:id/match/:matchId', element: <MatchDetail /> },
           { path: 'tournaments/:id/submit/:matchId', element: <SubmitResult /> },
           { path: 'profile', element: <Profile /> },
+          { path: 'leaderboard', element: <Leaderboard /> },
+          { path: 'support', element: <Support /> },
         ]
       },
       { path: '*', element: <NotFound /> }

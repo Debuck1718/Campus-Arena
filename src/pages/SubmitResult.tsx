@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+﻿import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { Button, Card, Input, SectionTitle } from '../components/ui';
+import { uploadMatchEvidence } from '../lib/storage';
 import { Upload, Trophy, AlertCircle } from 'lucide-react';
+
 export function SubmitResult() {
   const { matchId } = useParams<{ matchId: string }>();
   const nav = useNavigate();
@@ -14,16 +16,27 @@ export function SubmitResult() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!file) { setErr('Evidence is required to verify the match.'); return; }
-    setErr(null); setLoading(true);
+    if (!file) {
+      setErr('Evidence is required to verify the match.');
+      return;
+    }
+
+    setErr(null);
+    setLoading(true);
 
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setErr('Authentication required to submit.'); setLoading(false); return; }
+    if (!user) {
+      setErr('Authentication required to submit.');
+      setLoading(false);
+      return;
+    }
 
-    const filePath = `${matchId}/${Date.now()}_${file.name}`;
-    const { error: uploadErr } = await supabase.storage.from('evidence').upload(filePath, file);
-    
-    if (uploadErr) { setErr('Upload failed. Please try again.'); setLoading(false); return; }
+    const filePath = await uploadMatchEvidence(file, matchId!);
+    if (!filePath) {
+      setErr('Upload failed. Please try again.');
+      setLoading(false);
+      return;
+    }
 
     const { error } = await supabase.from('match_results').insert({
       match_id: matchId,
@@ -31,11 +44,15 @@ export function SubmitResult() {
       score_player1: score1,
       score_player2: score2,
       screenshot_url: filePath,
-      status: 'pending'
+      status: 'pending',
     });
 
     setLoading(false);
-    if (error) { setErr('Database error: ' + error.message); } else { nav(-1); }
+    if (error) {
+      setErr('Database error: ' + error.message);
+    } else {
+      nav(-1);
+    }
   }
 
   return (
@@ -44,27 +61,39 @@ export function SubmitResult() {
         <SectionTitle className="text-2xl font-bold tracking-tight">Report Outcome</SectionTitle>
         <p className="text-gray-400">Enter the final score and attach proof.</p>
       </div>
-      
+
       <Card className="bg-gray-900 border-gray-800 p-6 shadow-2xl">
         <form onSubmit={submit} className="space-y-6">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-xs font-semibold uppercase tracking-wider text-gray-500">Player 1 Score</label>
-              <Input type="number" min={0} value={score1} onChange={e=>setScore1(parseInt(e.target.value || '0', 10))} className="bg-black border-gray-700 text-lg" />
+              <Input
+                type="number"
+                min={0}
+                value={score1}
+                onChange={(e) => setScore1(parseInt(e.target.value || '0', 10))}
+                className="bg-black border-gray-700 text-lg"
+              />
             </div>
             <div className="space-y-2">
               <label className="text-xs font-semibold uppercase tracking-wider text-gray-500">Player 2 Score</label>
-              <Input type="number" min={0} value={score2} onChange={e=>setScore2(parseInt(e.target.value || '0', 10))} className="bg-black border-gray-700 text-lg" />
+              <Input
+                type="number"
+                min={0}
+                value={score2}
+                onChange={(e) => setScore2(parseInt(e.target.value || '0', 10))}
+                className="bg-black border-gray-700 text-lg"
+              />
             </div>
           </div>
 
           <div className="space-y-2">
             <label className="text-xs font-semibold uppercase tracking-wider text-gray-500">Upload Evidence</label>
             <div className="relative group cursor-pointer">
-              <input 
-                type="file" 
-                accept="image/*,video/*" 
-                onChange={e => setFile(e.target.files?.[0] || null)} 
+              <input
+                type="file"
+                accept="image/*,video/*"
+                onChange={(e) => setFile(e.target.files?.[0] || null)}
                 className="hidden"
                 id="file-upload"
               />
@@ -81,9 +110,9 @@ export function SubmitResult() {
             </div>
           )}
 
-          <Button 
-            type="submit" 
-            disabled={loading} 
+          <Button
+            type="submit"
+            disabled={loading}
             className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
           >
             {loading ? 'Processing...' : <><Trophy size={18} /> Submit Results</>}
@@ -92,28 +121,4 @@ export function SubmitResult() {
       </Card>
     </div>
   );
-}
-
-export function useSignedUrl(path: string | null) {
-  const [url, setUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!path) return;
-
-    async function getUrl() {
-      const { data, error } = await supabase.storage
-        .from('evidence')
-        .createSignedUrl(path as string, 3600); // URL expires in 1 hour
-
-      if (error) {
-        console.error('Error fetching signed URL:', error);
-      } else {
-        setUrl(data.signedUrl);
-      }
-    }
-
-    getUrl();
-  }, [path]);
-
-  return url;
 }

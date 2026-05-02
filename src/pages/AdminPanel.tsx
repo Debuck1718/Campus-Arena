@@ -1,26 +1,27 @@
 import React from 'react';
 import { makeAdmin, isCurrentUserAdmin } from '../lib/admin';
 import { useNavigate } from 'react-router-dom'; // Added for navigation
-import { 
-  getAllUsers, 
-  removeUser, 
-  banUser, 
-  unbanUser, 
-  getAllMatchResults, 
+import {
+  getAllUsers,
+  removeUser,
+  banUser,
+  unbanUser,
+  getAllMatchResults,
   removeMatchResult,
   getAllDisputes,
   updateDisputeStatus
 } from '../lib/moderation';
+import { getSignedUrls } from '../lib/storage';
 import { supabase } from '../supabaseClient';
-import { 
-  ShieldAlert, 
-  Users, 
-  Trophy, 
-  UserPlus, 
-  Ban, 
-  Trash2, 
-  Eye, 
-  CheckCircle, 
+import {
+  ShieldAlert,
+  Users,
+  Trophy,
+  UserPlus,
+  Ban,
+  Trash2,
+  Eye,
+  CheckCircle,
   XCircle,
   AlertTriangle,
   Loader2,
@@ -43,18 +44,18 @@ export function AdminPanel() {
   const [userId, setUserId] = React.useState('');
   const [status, setStatus] = React.useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [loading, setLoading] = React.useState(false);
-  
+
   // Data States
   const [users, setUsers] = React.useState<any[]>([]);
   const [results, setResults] = React.useState<any[]>([]);
   const [disputes, setDisputes] = React.useState<any[]>([]);
   const [tournaments, setTournaments] = React.useState<any[]>([]); // New State
   const [evidenceUrls, setEvidenceUrls] = React.useState<Record<string, string>>({});
-  
-  const [modal, setModal] = React.useState<{ 
-    isOpen: boolean, 
-    message: string, 
-    onConfirm: () => Promise<void> 
+
+  const [modal, setModal] = React.useState<{
+    isOpen: boolean,
+    message: string,
+    onConfirm: () => Promise<void>
   } | null>(null);
 
   React.useEffect(() => {
@@ -72,10 +73,13 @@ export function AdminPanel() {
         const matchData = await getAllMatchResults();
         setResults(matchData);
         const urls: Record<string, string> = {};
+        const paths = matchData
+          .map((res: any) => res.screenshot_url)
+          .filter(Boolean);
+        const signedMap = await getSignedUrls(paths);
         for (const res of matchData) {
           if (res.screenshot_url) {
-            const { data } = await supabase.storage.from('evidence').createSignedUrl(res.screenshot_url, 3600);
-            if (data) urls[res.id] = data.signedUrl;
+            urls[res.id] = signedMap[res.screenshot_url] || '';
           }
         }
         setEvidenceUrls(urls);
@@ -133,17 +137,17 @@ export function AdminPanel() {
               </div>
               <p className="text-gray-500 text-[10px] font-bold uppercase tracking-[0.2em]">Overseeing CampusArena Operations</p>
             </div>
-            
+
             {/* Quick Actions */}
             <div className="flex gap-3">
-              <Button 
+              <Button
                 onClick={() => nav('/admin/games')}
                 variant="outline"
                 className="border-gray-800 text-gray-400 font-black uppercase text-[9px] tracking-widest flex items-center gap-2"
               >
                 <Gamepad2 size={14} /> Game Registry
               </Button>
-              <Button 
+              <Button
                 onClick={() => nav('/create-tournament')}
                 className="bg-blue-600 text-white font-black uppercase text-[9px] tracking-widest flex items-center gap-2 shadow-[0_0_20px_rgba(37,99,235,0.2)]"
               >
@@ -151,12 +155,12 @@ export function AdminPanel() {
               </Button>
             </div>
           </div>
-          
+
           <nav className="flex gap-4 mt-8 border-b border-white/5 overflow-x-auto">
-            <TabButton active={activeTab === 'users'} onClick={() => setActiveTab('users')} icon={<Users size={14}/>} label="Operatives" />
-            <TabButton active={activeTab === 'tournaments'} onClick={() => setActiveTab('tournaments')} icon={<Trophy size={14}/>} label="Arenas" />
-            <TabButton active={activeTab === 'matches'} onClick={() => setActiveTab('matches')} icon={<Zap size={14}/>} label="Combat Logs" />
-            <TabButton active={activeTab === 'disputes'} onClick={() => setActiveTab('disputes')} icon={<Gavel size={14}/>} label="Disputes" />
+            <TabButton active={activeTab === 'users'} onClick={() => setActiveTab('users')} icon={<Users size={14} />} label="Operatives" />
+            <TabButton active={activeTab === 'tournaments'} onClick={() => setActiveTab('tournaments')} icon={<Trophy size={14} />} label="Arenas" />
+            <TabButton active={activeTab === 'matches'} onClick={() => setActiveTab('matches')} icon={<Zap size={14} />} label="Combat Logs" />
+            <TabButton active={activeTab === 'disputes'} onClick={() => setActiveTab('disputes')} icon={<Gavel size={14} />} label="Disputes" />
           </nav>
         </header>
 
@@ -189,9 +193,9 @@ export function AdminPanel() {
                   <td className="p-5 font-mono text-[10px] text-gray-600">{u.id}</td>
                   <td className="p-5 font-bold uppercase italic text-sm">{u.username}</td>
                   <td className="p-5 flex justify-end gap-3">
-                    <ActionButton color="text-yellow-600" icon={<Ban size={16}/>} onClick={() => setModal({ isOpen: true, message: `Ban ${u.username}?`, onConfirm: async () => { await banUser(u.id); fetchData(); } })} />
-                    <ActionButton color="text-green-600" icon={<CheckCircle size={16}/>} onClick={async () => { await unbanUser(u.id); fetchData(); }} />
-                    <ActionButton color="text-red-600" icon={<Trash2 size={16}/>} onClick={() => setModal({ isOpen: true, message: `Purge ${u.username}?`, onConfirm: async () => { await removeUser(u.id); fetchData(); } })} />
+                    <ActionButton color="text-yellow-600" icon={<Ban size={16} />} onClick={() => setModal({ isOpen: true, message: `Ban ${u.username}?`, onConfirm: async () => { await banUser(u.id); fetchData(); } })} />
+                    <ActionButton color="text-green-600" icon={<CheckCircle size={16} />} onClick={async () => { await unbanUser(u.id); fetchData(); }} />
+                    <ActionButton color="text-red-600" icon={<Trash2 size={16} />} onClick={() => setModal({ isOpen: true, message: `Purge ${u.username}?`, onConfirm: async () => { await removeUser(u.id); fetchData(); } })} />
                   </td>
                 </tr>
               ))}
@@ -209,8 +213,8 @@ export function AdminPanel() {
                 <td className="p-5 text-[10px] font-mono text-gray-500">{t.max_players} CAP</td>
                 <td className="p-5 text-right">
                   <div className="flex justify-end gap-3">
-                    <ActionButton color="text-blue-500" icon={<ExternalLink size={16}/>} onClick={() => nav(`/tournaments/${t.id}`)} />
-                    <ActionButton color="text-red-600" icon={<Trash2 size={16}/>} onClick={() => setModal({ isOpen: true, message: `Delete Tournament: ${t.name}?`, onConfirm: async () => { await supabase.from('tournaments').delete().eq('id', t.id); fetchData(); } })} />
+                    <ActionButton color="text-blue-500" icon={<ExternalLink size={16} />} onClick={() => nav(`/tournaments/${t.id}`)} />
+                    <ActionButton color="text-red-600" icon={<Trash2 size={16} />} onClick={() => setModal({ isOpen: true, message: `Delete Tournament: ${t.name}?`, onConfirm: async () => { await supabase.from('tournaments').delete().eq('id', t.id); fetchData(); } })} />
                   </div>
                 </td>
               </tr>
@@ -232,7 +236,7 @@ export function AdminPanel() {
                   ) : <span className="text-gray-700 text-[10px] font-black uppercase italic">No File</span>}
                 </td>
                 <td className="p-5 text-right">
-                  <ActionButton color="text-red-600" icon={<XCircle size={16}/>} onClick={() => setModal({ isOpen: true, message: "Invalidate result?", onConfirm: async () => { await removeMatchResult(r.id); fetchData(); } })} />
+                  <ActionButton color="text-red-600" icon={<XCircle size={16} />} onClick={() => setModal({ isOpen: true, message: "Invalidate result?", onConfirm: async () => { await removeMatchResult(r.id); fetchData(); } })} />
                 </td>
               </tr>
             ))}
@@ -251,15 +255,14 @@ export function AdminPanel() {
                   </span>
                 </td>
                 <td className="p-5">
-                  <span className={`text-[10px] font-black uppercase flex items-center gap-2 ${
-                    d.status === 'pending' ? 'text-yellow-500' : d.status === 'resolved' ? 'text-green-500' : 'text-blue-500'
-                  }`}>
+                  <span className={`text-[10px] font-black uppercase flex items-center gap-2 ${d.status === 'pending' ? 'text-yellow-500' : d.status === 'resolved' ? 'text-green-500' : 'text-blue-500'
+                    }`}>
                     <Clock size={12} /> {d.status}
                   </span>
                 </td>
                 <td className="p-5 text-right flex justify-end gap-3">
-                  <ActionButton color="text-blue-500" icon={<ExternalLink size={16}/>} onClick={() => {/* Navigate to details */}} />
-                  <ActionButton color="text-green-500" icon={<CheckCircle size={16}/>} onClick={async () => { await updateDisputeStatus(d.id, 'resolved'); fetchData(); }} />
+                  <ActionButton color="text-blue-500" icon={<ExternalLink size={16} />} onClick={() => {/* Navigate to details */ }} />
+                  <ActionButton color="text-green-500" icon={<CheckCircle size={16} />} onClick={async () => { await updateDisputeStatus(d.id, 'resolved'); fetchData(); }} />
                 </td>
               </tr>
             ))}
@@ -271,7 +274,7 @@ export function AdminPanel() {
       {modal?.isOpen && (
         <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
           <Card className="bg-[#0a0a0c] border-red-600/50 p-8 rounded-[2.5rem] max-w-sm w-full">
-             <div className="flex justify-center mb-6 text-red-600"><AlertTriangle size={32} /></div>
+            <div className="flex justify-center mb-6 text-red-600"><AlertTriangle size={32} /></div>
             <p className="text-center font-bold uppercase italic text-sm text-gray-200 mb-8">{modal.message}</p>
             <div className="grid grid-cols-2 gap-4">
               <Button variant="outline" className="border-gray-800 text-gray-500 font-black uppercase text-[10px]" onClick={() => setModal(null)}>Abort</Button>
@@ -287,9 +290,8 @@ export function AdminPanel() {
 // Sub-components for cleaner code
 function TabButton({ active, onClick, icon, label }: any) {
   return (
-    <button onClick={onClick} className={`flex items-center gap-2 px-6 py-4 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 ${
-      active ? 'text-red-500 border-red-500' : 'text-gray-500 border-transparent hover:text-gray-300'
-    }`}>
+    <button onClick={onClick} className={`flex items-center gap-2 px-6 py-4 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 ${active ? 'text-red-500 border-red-500' : 'text-gray-500 border-transparent hover:text-gray-300'
+      }`}>
       {icon} {label}
     </button>
   );
