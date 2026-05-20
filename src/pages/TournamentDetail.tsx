@@ -8,32 +8,34 @@ import { awardBadge } from '../lib/achievements'; // Your achievement helper
 import championImg from '../images/champion.png';
 import cupImg from '../images/cup1.png';
 import winnerImg from '../images/winner.png';
-import { 
-  Trophy, 
-  Gamepad2, 
-  Users, 
-  Zap, 
-  ArrowLeft, 
-  History, 
-  ShieldCheck 
+import {
+  Trophy,
+  Gamepad2,
+  Users,
+  Zap,
+  ArrowLeft,
+  History,
+  ShieldCheck
 } from 'lucide-react';
+import { Chat } from '../components/Chat';
+import { useTournamentChatId } from '../hooks/useTournamentChatId';
 
 async function fetchTournament(id: string) {
   const { data, error } = await supabase.from('tournaments').select('*').eq('id', id).single();
   if (error) throw error;
-  
+
   const { data: players } = await supabase
     .from('tournament_players')
     .select('profile_id')
     .eq('tournament_id', id);
-    
+
   const { data: matches } = await supabase
     .from('matches')
     .select('id, round_number, match_number, player1_id, player2_id, winner_id, status')
     .eq('tournament_id', id)
     .order('round_number', { ascending: true })
     .order('match_number', { ascending: true });
-    
+
   return { t: data, players: players || [], matches: matches || [] };
 }
 
@@ -61,10 +63,30 @@ export function TournamentDetail() {
     }
   }, [data?.t?.status, data?.t?.winner_id]);
 
+  const players = data?.players ?? [];
+  const matchData = data?.matches ?? [];
+  const t = data?.t;
+  const idList = [
+    ...players.map((p: { profile_id: string }) => p.profile_id),
+    ...matchData
+      .flatMap((m: { player1_id?: string; player2_id?: string; winner_id?: string }) => [m.player1_id, m.player2_id, m.winner_id])
+      .filter((pid): pid is string => Boolean(pid))
+  ];
+  const { nameMap } = useProfilesMap(idList);
+  const chatId = useTournamentChatId(id);
+  const name = (pid?: string | null) => (pid ? nameMap.get(pid) || pid : 'TBD');
+
   async function handleAction(rpcName: string) {
     try {
       setErr(null);
-      const { error } = await supabase.rpc(rpcName, { p_tournament: id, p_id: id });
+      const params: any = {};
+      if (rpcName.startsWith('tournament_')) {
+        params.p_id = id;
+      } else {
+        params.p_tournament = id;
+      }
+
+      const { error } = await supabase.rpc(rpcName, params);
       if (error) throw error;
       qc.invalidateQueries({ queryKey: ['tournament', id] });
     } catch (e: any) {
@@ -75,16 +97,8 @@ export function TournamentDetail() {
   if (isLoading) return <div className="min-h-screen bg-[#050505] flex items-center justify-center text-blue-500 font-black animate-pulse uppercase tracking-widest">Entering Arena...</div>;
   if (error || !data) return <div className="container py-10 text-red-500">Error: {(error as any)?.message}</div>;
 
-  const { t, players, matches: matchData } = data;
-  const idList = [
-    ...players.map((p: any) => p.profile_id),
-    ...matchData.flatMap((m: any) => [m.player1_id, m.player2_id, m.winner_id]).filter(Boolean)
-  ];
-  const { nameMap } = useProfilesMap(idList);
-  const name = (pid?: string | null) => (pid ? nameMap.get(pid) || pid : 'TBD');
-
   // Grouping matches into rounds
-  const rounds: Record<number, any[]> = {};
+  const rounds: Record<number, typeof matchData> = {};
   matchData.forEach((m) => {
     rounds[m.round_number] = rounds[m.round_number] || [];
     rounds[m.round_number].push(m);
@@ -99,7 +113,7 @@ export function TournamentDetail() {
           <Link to="/tournaments" className="flex items-center gap-2 text-gray-500 hover:text-white mb-6 text-[10px] font-black uppercase tracking-widest transition-colors">
             <ArrowLeft size={14} /> Back to Circuit
           </Link>
-          
+
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
             <div>
               <div className="flex items-center gap-2 mb-3">
@@ -124,7 +138,7 @@ export function TournamentDetail() {
 
       <div className="container mx-auto px-4 mt-12">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-10">
-          
+
           {/* BRACKET AREA */}
           <div className="lg:col-span-3">
             <div className="flex items-center gap-3 mb-8">
@@ -144,12 +158,12 @@ export function TournamentDetail() {
                       Round {round}
                     </div>
                     {rounds[round].map((m) => (
-                      <MatchCard 
-                        key={m.id} 
-                        m={m} 
-                        uid={uid} 
-                        name={name} 
-                        tournamentId={id!} 
+                      <MatchCard
+                        key={m.id}
+                        m={m}
+                        uid={uid}
+                        name={name}
+                        tournamentId={id!}
                       />
                     ))}
                   </div>
@@ -168,6 +182,14 @@ export function TournamentDetail() {
                 </div>
               </div>
             )}
+          </div>
+          {/* Tournament Chat */}
+          <div className="mt-12">
+            <div className="flex items-center gap-3 mb-3">
+              <Gamepad2 size={18} className="text-blue-500" />
+              <h3 className="text-sm font-black uppercase tracking-[0.3em] text-blue-500">Tournament Chat</h3>
+            </div>
+            <Chat chatId={chatId} />
           </div>
 
           {/* SIDEBAR: PLAYERS */}
@@ -205,7 +227,7 @@ function MatchCard({ m, uid, name, tournamentId }: any) {
   const involved = uid && (uid === m.player1_id || uid === m.player2_id);
   const isP1Winner = m.winner_id === m.player1_id;
   const isP2Winner = m.winner_id === m.player2_id;
-  
+
   const { data: results } = useMatchResults(m.id);
 
   return (
@@ -236,7 +258,7 @@ function MatchCard({ m, uid, name, tournamentId }: any) {
       )}
 
       {involved && m.status !== 'completed' && (
-        <Link 
+        <Link
           to={`/tournaments/${tournamentId}/submit/${m.id}`}
           className="mt-4 block text-center py-2 bg-white/5 hover:bg-blue-600 transition-colors rounded-xl text-[9px] font-black uppercase tracking-widest"
         >

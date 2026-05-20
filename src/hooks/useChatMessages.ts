@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 
 export type ChatMessage = {
@@ -28,18 +28,18 @@ export function useChatMessages(chatId: string | undefined) {
       setLoading(false);
     }
     fetchMessages();
-    sub = supabase
+    const channel = supabase
       .channel('chat-messages-' + chatId)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'chat_messages', filter: `chat_id=eq.${chatId}` },
-        (payload) => {
+        () => {
           fetchMessages();
         }
       )
       .subscribe();
     return () => {
-      if (sub) supabase.removeChannel(sub);
+      supabase.removeChannel(channel);
     };
   }, [chatId]);
 

@@ -65,7 +65,8 @@ end$$;
 -------------------------------------------------
 -- NOTIFICATION HELPER
 -------------------------------------------------
-create or replace function notify_match_event(p_match uuid, p_type text, p_payload jsonb default '{}'::jsonb)
+drop function if exists notify_match_event(uuid, text, jsonb);
+create function notify_match_event(p_match uuid, p_type text, p_payload jsonb default '{}'::jsonb)
 returns void language plpgsql as $$
 declare
   m matches;

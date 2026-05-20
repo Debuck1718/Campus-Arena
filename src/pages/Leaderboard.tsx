@@ -1,11 +1,24 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../supabaseClient';
-import { Card, Avatar } from '../components/ui';
-import { Trophy, Medal, Flame, Award, TrendingUp, User } from 'lucide-react';
+import { Avatar } from '../components/ui';
+import { Trophy, Flame, Award, TrendingUp } from 'lucide-react';
+
+interface LeaderboardProfile {
+  username?: string | null;
+  avatar_url?: string | null;
+}
+
+interface LeaderboardRow {
+  wins: number;
+  losses: number;
+  points: number;
+  profile_id: string;
+  profiles?: LeaderboardProfile[];
+}
 
 // --- Database Logic: Updated to use profile_id ---
-async function fetchLeaderboard() {
+async function fetchLeaderboard(): Promise<LeaderboardRow[]> {
   const { data, error } = await supabase
     .from('rankings')
     .select(`
@@ -19,14 +32,14 @@ async function fetchLeaderboard() {
       )
     `)
     .order('points', { ascending: false })
-    .limit(50);
-    
+    .limit(50) as { data: LeaderboardRow[] | null; error: unknown };
+
   if (error) throw error;
-  return data;
+  return data || [];
 }
 
 export function Leaderboard() {
-  const { data: rankingData, isLoading, error } = useQuery({
+  const { data: rankingData, isLoading, error } = useQuery<LeaderboardRow[]>({
     queryKey: ['globalLeaderboard'],
     queryFn: fetchLeaderboard
   });
@@ -46,7 +59,7 @@ export function Leaderboard() {
   return (
     <div className="min-h-screen bg-[#050505] text-gray-100 pb-24 relative overflow-hidden">
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-blue-600/5 blur-[160px] rounded-full pointer-events-none" />
-      
+
       <div className="container mx-auto px-4 pt-16 relative z-10">
         <header className="text-center mb-16">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/10 mb-6 backdrop-blur-md">
@@ -76,27 +89,27 @@ export function Leaderboard() {
           </div>
 
           <div className="space-y-3">
-            {theRest.map((item: any, index: number) => {
-              const profile = item.profiles;
-              const winRate = item.wins + item.losses > 0 
-                ? Math.round((item.wins / (item.wins + item.losses)) * 100) 
+            {theRest.map((item: LeaderboardRow, index: number) => {
+              const profile = item.profiles?.[0];
+              const winRate = item.wins + item.losses > 0
+                ? Math.round((item.wins / (item.wins + item.losses)) * 100)
                 : 0;
 
               return (
-                <div 
+                <div
                   key={item.profile_id} // Updated key
                   className="group grid grid-cols-12 items-center px-8 py-5 bg-[#0a0a0c]/50 border border-gray-800/40 rounded-2xl hover:border-blue-500/40 hover:bg-blue-600/[0.03] transition-all duration-300"
                 >
                   <div className="col-span-1 font-black text-gray-800 group-hover:text-blue-500 italic text-xl">
                     {index + 4}
                   </div>
-                  
+
                   <div className="col-span-5 md:col-span-6 flex items-center gap-4">
-                    <Avatar 
-                      src={profile?.avatar_url} 
-                      alt={profile?.username || 'Player'} 
-                      size={44} 
-                      className="border-2 border-gray-900 group-hover:border-blue-500/50 transition-all" 
+                    <Avatar
+                      src={profile?.avatar_url}
+                      alt={profile?.username || 'Player'}
+                      size={44}
+                      className="border-2 border-gray-900 group-hover:border-blue-500/50 transition-all"
                     />
                     <div className="flex flex-col">
                       <span className="font-black text-white uppercase tracking-tight text-sm">
@@ -107,8 +120,8 @@ export function Leaderboard() {
                   </div>
 
                   <div className="col-span-2 text-center font-mono text-xs text-gray-500">
-                    <span className="text-green-500/80">{item.wins}</span> 
-                    <span className="mx-1 text-gray-800">/</span> 
+                    <span className="text-green-500/80">{item.wins}</span>
+                    <span className="mx-1 text-gray-800">/</span>
                     <span className="text-red-500/80">{item.losses}</span>
                   </div>
 
@@ -130,26 +143,35 @@ export function Leaderboard() {
 }
 
 // --- Podium Sub-Component (Updated key usage) ---
-function PodiumPosition({ rankData, rank, height, color, glow, featured = false }: any) {
-  const profile = rankData.profiles;
+interface PodiumPositionProps {
+  rankData: LeaderboardRow;
+  rank: number;
+  height: string;
+  color: string;
+  glow: string;
+  featured?: boolean;
+}
+
+function PodiumPosition({ rankData, rank, height, color, glow, featured = false }: PodiumPositionProps) {
+  const profile = rankData.profiles?.[0];
   return (
     <div className={`flex flex-col items-center gap-6 ${featured ? 'order-1 md:order-2' : rank === 2 ? 'order-2 md:order-1' : 'order-3'}`}>
       <div className="relative group">
         <div className={`absolute -inset-2 bg-gradient-to-t from-blue-600/20 to-transparent rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
-        
+
         <div className="relative">
-           <Avatar 
-            src={profile?.avatar_url} 
-            alt={profile?.username || 'Legend'} 
-            size={featured ? 120 : 90} 
-            className={`border-4 ${featured ? 'border-yellow-500 shadow-2xl ' + glow : 'border-gray-800 shadow-xl ' + glow}`} 
+          <Avatar
+            src={profile?.avatar_url}
+            alt={profile?.username || 'Legend'}
+            size={featured ? 120 : 90}
+            className={`border-4 ${featured ? 'border-yellow-500 shadow-2xl ' + glow : 'border-gray-800 shadow-xl ' + glow}`}
           />
           <div className={`absolute -bottom-2 -right-2 w-10 h-10 rounded-xl bg-[#0a0a0c] border border-gray-800 flex items-center justify-center font-black shadow-2xl ${color}`}>
             {rank === 1 ? <Trophy size={18} /> : rank === 2 ? <Award size={18} /> : <TrendingUp size={18} />}
           </div>
         </div>
       </div>
-      
+
       <div className="text-center space-y-1">
         <h3 className="font-black uppercase italic text-white tracking-tighter text-lg leading-none">
           {profile?.username || 'TBD'}

@@ -16,8 +16,17 @@ module.exports = {
   ],
   rules: {
     'react/react-in-jsx-scope': 'off',
-    '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
-    'tailwindcss/no-custom-classname': 'off'
+    '@typescript-eslint/no-unused-vars': [
+      'warn',
+      { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }
+    ],
+    '@typescript-eslint/no-explicit-any': 'warn',
+    'react/prop-types': 'off',
+    'react/no-unescaped-entities': 'off',
+    'react/jsx-no-target-blank': 'off',
+    'tailwindcss/no-custom-classname': 'off',
+    'tailwindcss/classnames-order': 'off',
+    'tailwindcss/enforces-shorthand': 'off'
   },
   ignorePatterns: ['dist', 'node_modules']
 };

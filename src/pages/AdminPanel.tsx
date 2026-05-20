@@ -141,14 +141,14 @@ export function AdminPanel() {
             {/* Quick Actions */}
             <div className="flex gap-3">
               <Button
-                onClick={() => nav('/admin/games')}
+                onClick={() => nav('/games')}
                 variant="outline"
                 className="border-gray-800 text-gray-400 font-black uppercase text-[9px] tracking-widest flex items-center gap-2"
               >
                 <Gamepad2 size={14} /> Game Registry
               </Button>
               <Button
-                onClick={() => nav('/create-tournament')}
+                onClick={() => nav('/tournaments/create')}
                 className="bg-blue-600 text-white font-black uppercase text-[9px] tracking-widest flex items-center gap-2 shadow-[0_0_20px_rgba(37,99,235,0.2)]"
               >
                 <PlusCircle size={14} /> New Arena

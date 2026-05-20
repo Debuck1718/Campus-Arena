@@ -4,6 +4,10 @@ import { supabase } from '../supabaseClient';
 import { useProfilesMap } from '../hooks/useProfilesMap';
 import { Link } from 'react-router-dom';
 import { Card, SectionTitle, Avatar, Button } from '../components/ui';
+import { OpenChallenges } from '../components/OpenChallenges';
+import { FriendlyHistory } from '../components/FriendlyHistory';
+import { useNavigate } from 'react-router-dom';
+import { useToast } from '../components/Toast';
 import { Trophy, Zap, Target, LayoutDashboard } from 'lucide-react';
 import soccerImg from '../images/Soccer.png';
 
@@ -12,6 +16,11 @@ interface MatchCardProps {
   uid: string | null;
   name: (pid?: string | null) => string;
   avatar: (pid?: string | null) => string | null;
+}
+
+interface GameOption {
+  id: string;
+  name: string;
 }
 
 async function fetchUpcoming() {
@@ -23,13 +32,22 @@ async function fetchUpcoming() {
   return data;
 }
 
+async function fetchGames() {
+  const { data, error } = await supabase
+    .from('games')
+    .select('id,name')
+    .order('name');
+  if (error) throw error;
+  return data as GameOption[];
+}
+
 const EmptyState = () => (
   <div className="col-span-full relative overflow-hidden py-20 flex flex-col items-center text-center bg-gray-900/40 border border-gray-800 rounded-3xl backdrop-blur-sm">
     {/* Decorative background image for empty state */}
-    <img 
-      src={soccerImg} 
-      alt="" 
-      className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 opacity-5 grayscale pointer-events-none" 
+    <img
+      src={soccerImg}
+      alt=""
+      className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 opacity-5 grayscale pointer-events-none"
     />
     <div className="relative z-10">
       <div className="w-24 h-24 bg-blue-600/10 rounded-full flex items-center justify-center mb-6 mx-auto border border-blue-500/20 shadow-[0_0_30px_rgba(59,130,246,0.1)]">
@@ -56,10 +74,10 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, uid, name, avatar }) => {
         <div className="p-6 flex flex-col h-full">
           <div className="flex justify-between items-center mb-8">
             <div className="flex flex-col">
-               <span className="text-[10px] font-black uppercase tracking-[0.25em] text-blue-500">
+              <span className="text-[10px] font-black uppercase tracking-[0.25em] text-blue-500">
                 {match.tournament_name || 'Exhibition'}
               </span>
-              <span className="text-[10px] text-gray-500 font-bold uppercase">{new Date(match.scheduled_at).toLocaleString([], {weekday: 'short', hour: '2-digit', minute:'2-digit'})}</span>
+              <span className="text-[10px] text-gray-500 font-bold uppercase">{new Date(match.scheduled_at).toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' })}</span>
             </div>
             <div className="px-2.5 py-1 rounded-md bg-gray-900 border border-gray-800">
               <span className="text-[9px] font-black text-green-500 uppercase tracking-tighter">● {match.status}</span>
@@ -69,7 +87,7 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, uid, name, avatar }) => {
           <div className="flex items-center justify-between gap-2 py-4 relative">
             {/* Visual connector */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-[1px] bg-gradient-to-r from-transparent via-gray-800 to-transparent"></div>
-            
+
             <div className="flex flex-col items-center gap-3 z-10 flex-1">
               <div className="relative">
                 <div className="absolute inset-0 bg-blue-500 rounded-full blur-md opacity-0 group-hover:opacity-20 transition-opacity"></div>
@@ -113,15 +131,20 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, uid, name, avatar }) => {
 
 export function Dashboard() {
   const [uid, setUid] = React.useState<string | null>(null);
+  const [selectedGame, setSelectedGame] = React.useState<string>('');
+  const nav = useNavigate();
+  const notify = useToast();
+  const [quickLoading, setQuickLoading] = React.useState(false);
   const { data, isLoading } = useQuery({ queryKey: ['upcoming'], queryFn: fetchUpcoming });
+  const { data: games, isLoading: gamesLoading } = useQuery({ queryKey: ['games'], queryFn: fetchGames });
 
-  React.useEffect(() => { 
-    supabase.auth.getUser().then(({ data }) => setUid(data.user?.id ?? null)); 
+  React.useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUid(data.user?.id ?? null));
   }, []);
 
   const ids = (data || []).flatMap((m: any) => [m.player1_id, m.player2_id]).filter(Boolean) as string[];
   const { nameMap, avatarMap } = useProfilesMap(ids);
-  
+
   const name = (pid?: string | null) => (pid ? (nameMap.get(pid) || 'Player') : 'TBD');
   const avatar = (pid?: string | null) => (pid ? (avatarMap.get(pid) || null) : null);
 
@@ -129,10 +152,10 @@ export function Dashboard() {
     <div className="min-h-screen bg-[#050505] text-gray-100 pb-20">
       {/* Decorative Header Background */}
       <div className="absolute top-0 left-0 w-full h-64 overflow-hidden pointer-events-none opacity-20">
-        <img 
-          src={soccerImg} 
-          alt="" 
-          className="absolute -top-12 -right-12 w-96 blur-3xl" 
+        <img
+          src={soccerImg}
+          alt=""
+          className="absolute -top-12 -right-12 w-96 blur-3xl"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-transparent to-[#050505]"></div>
       </div>
@@ -151,29 +174,104 @@ export function Dashboard() {
               Your personalized match schedule. Prepare for your upcoming challenges and report results.
             </p>
           </div>
-          
-          {data && data.length > 0 && (
-            <div className="bg-gray-900/50 backdrop-blur-md p-4 rounded-2xl border border-gray-800 flex gap-6 items-center">
-              <div>
-                <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Next Battle</p>
-                <p className="text-lg font-bold text-white uppercase italic tracking-tight">{name(data[0].player1_id === uid ? data[0].player2_id : data[0].player1_id)}</p>
-              </div>
-              <Trophy className="text-yellow-500 opacity-50" size={32} />
+
+          <div className="flex flex-col sm:flex-row gap-4 items-center">
+            <Link to="/matches/new">
+              <Button className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-black uppercase tracking-widest transition-all hover:scale-105 active:scale-95">
+                Challenge Player
+              </Button>
+            </Link>
+            <div className="flex flex-col sm:flex-row gap-3 items-center">
+              <select
+                className="input bg-gray-900 border border-gray-800 text-white"
+                value={selectedGame}
+                onChange={(e) => setSelectedGame(e.target.value)}
+                disabled={gamesLoading}
+              >
+                <option value="">Select game for Quick Match</option>
+                {games?.map((game) => (
+                  <option key={game.id} value={game.id}>
+                    {game.name}
+                  </option>
+                ))}
+              </select>
+              <Button
+                onClick={async () => {
+                  try {
+                    if (!selectedGame) {
+                      notify('Please select a game for Quick Match.', 'error');
+                      return;
+                    }
+                    setQuickLoading(true);
+                    const { data: sess } = await supabase.auth.getUser();
+                    const me = sess.user?.id;
+                    if (!me) {
+                      notify('Not authenticated', 'error');
+                      return;
+                    }
+
+                    const { data: matchId, error } = await supabase.rpc('claim_quick_match', {
+                      p_uid: me,
+                      p_game_id: selectedGame
+                    });
+
+                    if (error) {
+                      const errorMsg = error.message || 'Could not find or create match';
+                      if (errorMsg.includes('foreign key') || errorMsg.includes('constraint')) {
+                        notify('Quick Match unavailable. Please try again.', 'error');
+                      } else {
+                        notify('Quick Match failed: ' + errorMsg, 'error');
+                      }
+                      console.error('Quick match error', error);
+                      return;
+                    }
+                    if (matchId) {
+                      const selectedGameName = games?.find((g) => g.id === selectedGame)?.name || 'selected game';
+                      notify(`Match found for ${selectedGameName}! Opening chat...`, 'success');
+                      nav(`/matches/${matchId}`);
+                    }
+                  } finally {
+                    setQuickLoading(false);
+                  }
+                }}
+                disabled={quickLoading || gamesLoading}
+                className="bg-green-600 hover:bg-green-500 text-white px-4 py-3 rounded-xl font-black uppercase tracking-widest transition-all"
+              >
+                {quickLoading ? 'Finding Match...' : 'Quick Match'}
+              </Button>
             </div>
-          )}
+            {data && data.length > 0 && (
+              <div className="bg-gray-900/50 backdrop-blur-md p-4 rounded-2xl border border-gray-800 flex gap-6 items-center">
+                <div>
+                  <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Next Battle</p>
+                  <p className="text-lg font-bold text-white uppercase italic tracking-tight">{name(data[0].player1_id === uid ? data[0].player2_id : data[0].player1_id)}</p>
+                </div>
+                <Trophy className="text-yellow-500 opacity-50" size={32} />
+              </div>
+            )}
+          </div>
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-          {isLoading 
+          {isLoading
             ? [1, 2, 3].map((n) => (
-                <div key={n} className="h-64 bg-gray-900/50 rounded-2xl animate-pulse border border-gray-800"></div>
-              ))
-            : data && data.length > 0 
+              <div key={n} className="h-64 bg-gray-900/50 rounded-2xl animate-pulse border border-gray-800"></div>
+            ))
+            : data && data.length > 0
               ? data.map((m: any) => (
-                  <MatchCard key={m.match_id} match={m} uid={uid} name={name} avatar={avatar} />
-                ))
+                <MatchCard key={m.match_id} match={m} uid={uid} name={name} avatar={avatar} />
+              ))
               : <EmptyState />
           }
+        </div>
+
+        <div className="mt-10 grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-1">
+            <OpenChallenges />
+          </div>
+          <div className="lg:col-span-2">
+            <FriendlyHistory uid={uid} />
+          </div>
         </div>
       </div>
     </div>

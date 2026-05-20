@@ -54,9 +54,11 @@ Core features
 - Formats: Single Elimination; Groups → Knockout (Round Robin into bracket)
 - Brackets: deterministic progression with byes handled
 - Matches: result submission, confirmations, screenshots, disputes, no‑show workflow
+- PES / in-person play: open challenges can be created for local campus matchups and coordinated via match chat
+- Duplicate pending challenges are blocked for the same game until the first challenge is accepted, so every player gets a fair chance to play
 - Rankings: points + ELO (season/game scoped)
-- Notifications: in-app events (match scheduled, deadline near)
-- Chat: per-match and per-tournament channels
+- Notifications: in-app events (open challenges, tournament launches, deadline alerts)
+- Chat: per-match and per-tournament channels for coordination and evidence discussion
 - Admin: overrides, audit logs, prizes
 
 Tech stack
@@ -131,6 +133,8 @@ Frontend Quick Start
 - In Supabase Storage, create private buckets: match-screenshots and avatars
 - Run: npm install && npm run dev
 - Sign up via /signup (this creates your profile row)
+- Create a match challenge via /matches/new to invite a campus opponent for PES or local play
+- Accept open challenges from the dashboard and use the match chat to coordinate a hostel meetup location
 - Create a tournament at /tournaments/create, then join it and start single elimination
 - Submit a result at /tournaments/:id/submit/:matchId; the frontend uploads proof to the private `match-screenshots` bucket and saves the storage path in `match_results.screenshot_url`
 - Admins can preview submitted evidence from the Admin Panel Matches tab using on-demand signed URLs
@@ -151,7 +155,9 @@ Frontend routes
 - /tournaments: Tournaments list
 - /tournaments/create: Create a new tournament
 - /tournaments/:id: Tournament detail with bracket
-- /tournaments/:id/match/:matchId: Match detail
+- /tournaments/:id/match/:matchId: Match detail (includes match chat for coordination)
+- /matches/new: Create an open challenge for a friend or a local opponent
+- /matches/:matchId: Match detail and chat for in-person meetup coordination
 - /tournaments/:id/submit/:matchId: Submit result for a match
 
 Key RPCs (cheat sheet)

@@ -14,6 +14,7 @@ import { Profile } from './pages/Profile';
 import { PublicProfile } from './pages/PublicProfile';
 import { SubmitResult } from './pages/SubmitResult';
 import { MatchDetail } from './pages/MatchDetail';
+import { CreateMatch } from './pages/CreateMatch';
 import { Leaderboard } from './pages/Leaderboard';
 import { Support } from './pages/Support';
 import { GamesManagement } from './pages/GamesMangement';
@@ -139,6 +140,9 @@ const router = createBrowserRouter([
       {
         element: <AuthGate />, children: [
           { path: 'dashboard', element: <Dashboard /> },
+          { path: 'matches/new', element: <CreateMatch /> },
+          { path: 'matches/:matchId', element: <MatchDetail /> },
+          { path: 'matches/:matchId/submit', element: <SubmitResult /> },
           { path: 'tournaments', element: <Tournaments /> },
           { path: 'tournaments/create', element: <CreateTournament /> },
           { path: 'tournaments/:id', element: <TournamentDetail /> },

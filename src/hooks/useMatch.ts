@@ -4,7 +4,7 @@ import { supabase } from '../supabaseClient';
 async function getMatch(matchId: string) {
   const { data: m, error } = await supabase
     .from('matches')
-    .select('*, tournaments(name)')
+    .select('*, tournaments(name), games(name, slug, platform_support)')
     .eq('id', matchId)
     .single();
   if (error) throw error;

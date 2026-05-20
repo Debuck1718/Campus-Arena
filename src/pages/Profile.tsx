@@ -2,36 +2,50 @@ import React from 'react';
 import { supabase } from '../supabaseClient';
 import { Button, Card, Input, Avatar } from '../components/ui';
 import { uploadAvatar } from '../lib/storage';
-import { 
-  User, 
-  Gamepad2, 
-  ShieldCheck, 
-  History, 
-  TrendingUp, 
-  Swords, 
-  Camera, 
+import {
+  User,
+  Gamepad2,
+  ShieldCheck,
+  History,
+  TrendingUp,
+  Swords,
+  Camera,
   Save,
   CheckCircle2,
   Medal,
   Lock
 } from 'lucide-react';
 
+interface MatchHistoryItem {
+  id: string;
+  created_at: string;
+  status: string;
+  tournaments?: { name?: string };
+}
+
+interface StatMiniProps {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+  color?: string;
+}
+
 // Achievement Configuration for UI Mapping
 const BADGE_MAP: Record<string, { label: string; desc: string; icon: React.ReactNode }> = {
-  tournament_champion: { 
-    label: "Grand Champion", 
-    desc: "Took 1st place in a major circuit.", 
-    icon: <ShieldCheck size={24} className="text-yellow-500" /> 
+  tournament_champion: {
+    label: "Grand Champion",
+    desc: "Took 1st place in a major circuit.",
+    icon: <ShieldCheck size={24} className="text-yellow-500" />
   },
-  first_win: { 
-    label: "First Blood", 
-    desc: "Secured your first match victory.", 
-    icon: <Swords size={24} className="text-blue-500" /> 
+  first_win: {
+    label: "First Blood",
+    desc: "Secured your first match victory.",
+    icon: <Swords size={24} className="text-blue-500" />
   },
-  power_user: { 
-    label: "Veteran", 
-    desc: "Participated in 10+ tournaments.", 
-    icon: <TrendingUp size={24} className="text-purple-500" /> 
+  power_user: {
+    label: "Veteran",
+    desc: "Participated in 10+ tournaments.",
+    icon: <TrendingUp size={24} className="text-purple-500" />
   }
 };
 
@@ -42,10 +56,10 @@ export function Profile() {
   const [uploading, setUploading] = React.useState(false);
   const [msg, setMsg] = React.useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [uid, setUid] = React.useState<string | null>(null);
-  
+
   // Stats & Achievements State
   const [stats, setStats] = React.useState({ wins: 0, losses: 0, points: 0 });
-  const [matches, setMatches] = React.useState<any[]>([]);
+  const [matches, setMatches] = React.useState<MatchHistoryItem[]>([]);
   const [achievements, setAchievements] = React.useState<string[]>([]);
 
   const availablePlatforms = ['PlayStation', 'Xbox', 'PC', 'Mobile'];
@@ -75,12 +89,12 @@ export function Profile() {
         .select(`id, created_at, status, tournaments (name)`)
         .or(`player1_id.eq.${id},player2_id.eq.${id}`)
         .order('created_at', { ascending: false })
-        .limit(5);
+        .limit(5) as { data: MatchHistoryItem[] | null; error: unknown };
       if (history) setMatches(history);
 
       // 4. Fetch Earned Achievements
-      const { data: earned } = await supabase.from('achievements').select('badge_type').eq('player_id', id);
-      if (earned) setAchievements(earned.map(a => a.badge_type));
+      const { data: earned } = await supabase.from('achievements').select('badge_type').eq('player_id', id) as { data: { badge_type: string }[] | null; error: unknown };
+      if (earned) setAchievements(earned.map((a) => a.badge_type));
     })();
   }, []);
 
@@ -112,8 +126,9 @@ export function Profile() {
       const url = await uploadAvatar(f, uid);
       setAvatarUrl(url);
       setMsg({ type: 'success', text: 'Avatar uploaded! Save to apply.' });
-    } catch (err: any) {
-      setMsg({ type: 'error', text: err.message || 'Upload failed' });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Upload failed';
+      setMsg({ type: 'error', text: message });
     } finally {
       setUploading(false);
     }
@@ -124,7 +139,7 @@ export function Profile() {
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-600/5 blur-[120px] rounded-full pointer-events-none" />
 
       <div className="container max-w-6xl mx-auto px-4 pt-12 relative z-10">
-        
+
         {/* --- TOP SECTION: PLAYER CARD --- */}
         <header className="flex flex-col md:flex-row items-center gap-8 mb-12 bg-[#0a0a0c] border border-gray-800 p-8 rounded-3xl relative overflow-hidden">
           <div className="absolute top-0 right-0 p-4 opacity-5">
@@ -145,17 +160,17 @@ export function Profile() {
               <CheckCircle2 size={20} className="text-blue-500" />
             </div>
             <p className="text-gray-500 font-bold text-xs uppercase tracking-widest mb-6">Pro League Member • Joined {new Date().getFullYear()}</p>
-            
+
             <div className="flex flex-wrap justify-center md:justify-start gap-4">
-              <StatMini icon={<TrendingUp size={14}/>} label="Points" value={stats.points} />
-              <StatMini icon={<Swords size={14}/>} label="Wins" value={stats.wins} color="text-green-500" />
-              <StatMini icon={<Medal size={14}/>} label="Badges" value={achievements.length} color="text-yellow-500" />
+              <StatMini icon={<TrendingUp size={14} />} label="Points" value={stats.points} />
+              <StatMini icon={<Swords size={14} />} label="Wins" value={stats.wins} color="text-green-500" />
+              <StatMini icon={<Medal size={14} />} label="Badges" value={achievements.length} color="text-yellow-500" />
             </div>
           </div>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
+
           {/* --- LEFT COLUMN: SETTINGS --- */}
           <div className="lg:col-span-1 space-y-8">
             <section>
@@ -178,20 +193,20 @@ export function Profile() {
 
             {/* PLATFORMS */}
             <section>
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-500 mb-4">Network Platforms</h3>
-                <div className="grid grid-cols-2 gap-2">
-                  {availablePlatforms.map((p) => (
-                    <button key={p} onClick={() => togglePlatform(p)} className={`p-3 rounded-xl border transition-all text-[10px] font-black uppercase tracking-tighter flex items-center gap-2 ${platforms.includes(p) ? 'bg-blue-600/10 border-blue-600 text-white' : 'bg-black/40 border-gray-800 text-gray-600'}`}>
-                      <Gamepad2 size={12} /> {p}
-                    </button>
-                  ))}
-                </div>
+              <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-500 mb-4">Network Platforms</h3>
+              <div className="grid grid-cols-2 gap-2">
+                {availablePlatforms.map((p) => (
+                  <button key={p} onClick={() => togglePlatform(p)} className={`p-3 rounded-xl border transition-all text-[10px] font-black uppercase tracking-tighter flex items-center gap-2 ${platforms.includes(p) ? 'bg-blue-600/10 border-blue-600 text-white' : 'bg-black/40 border-gray-800 text-gray-600'}`}>
+                    <Gamepad2 size={12} /> {p}
+                  </button>
+                ))}
+              </div>
             </section>
           </div>
 
           {/* --- RIGHT COLUMN: ACHIEVEMENTS & HISTORY --- */}
           <div className="lg:col-span-2 space-y-12">
-            
+
             {/* ACHIEVEMENT SHOWCASE */}
             <section>
               <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-500 mb-6 flex items-center gap-2">
@@ -258,7 +273,7 @@ export function Profile() {
   );
 }
 
-function StatMini({ icon, label, value, color = "text-white" }: any) {
+function StatMini({ icon, label, value, color = 'text-white' }: StatMiniProps) {
   return (
     <div className="bg-black/40 border border-gray-800 px-4 py-2 rounded-xl flex items-center gap-3">
       <div className="text-blue-500">{icon}</div>

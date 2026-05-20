@@ -14,6 +14,13 @@ export function Chat({ chatId }: { chatId: string | undefined }) {
     supabase.auth.getUser().then(({ data }) => setUid(data.user?.id ?? null));
   }, []);
 
+  React.useEffect(() => {
+    if (chatId) {
+      // Focus input when chat becomes available
+      inputRef.current?.focus();
+    }
+  }, [chatId]);
+
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
     if (!input.trim() || !chatId) return;

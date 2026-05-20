@@ -2,13 +2,13 @@ import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { Card, Avatar, Button } from '../components/ui';
-import { 
-  Trophy, 
-  Gamepad2, 
-  Swords, 
-  TrendingUp, 
-  ArrowLeft, 
-  Share2, 
+import {
+  Trophy,
+  Gamepad2,
+  Swords,
+  TrendingUp,
+  ArrowLeft,
+  Share2,
   ShieldCheck,
   History
 } from 'lucide-react';
@@ -20,12 +20,26 @@ interface ProfileData {
   bio?: string;
 }
 
+interface MatchHistoryItem {
+  id: string;
+  created_at: string;
+  status: string;
+  tournaments?: { name?: string };
+}
+
+interface StatItemProps {
+  label: string;
+  value: string | number;
+  icon: React.ReactNode;
+  color?: string;
+}
+
 export function PublicProfile() {
   const { id } = useParams<{ id: string }>();
   const nav = useNavigate();
   const [profile, setProfile] = React.useState<ProfileData | null>(null);
   const [stats, setStats] = React.useState({ wins: 0, losses: 0, points: 0 });
-  const [matches, setMatches] = React.useState<any[]>([]);
+  const [matches, setMatches] = React.useState<MatchHistoryItem[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [err, setErr] = React.useState<string | null>(null);
 
@@ -33,7 +47,7 @@ export function PublicProfile() {
     async function getProfileData() {
       if (!id) return;
       setLoading(true);
-      
+
       // 1. Fetch Profile
       const { data: profileData, error: profileErr } = await supabase
         .from('profiles')
@@ -55,7 +69,7 @@ export function PublicProfile() {
         .select('wins, losses, points')
         .eq('player_id', id)
         .single();
-      
+
       if (ranking) setStats(ranking);
 
       // 3. Fetch Recent Matches
@@ -64,17 +78,17 @@ export function PublicProfile() {
         .select('id, created_at, status, tournaments(name)')
         .or(`player1_id.eq.${id},player2_id.eq.${id}`)
         .order('created_at', { ascending: false })
-        .limit(3);
-      
+        .limit(3) as { data: MatchHistoryItem[] | null; error: unknown };
+
       if (history) setMatches(history);
-      
+
       setLoading(false);
     }
     getProfileData();
   }, [id]);
 
-  const winRate = stats.wins + stats.losses > 0 
-    ? Math.round((stats.wins / (stats.wins + stats.losses)) * 100) 
+  const winRate = stats.wins + stats.losses > 0
+    ? Math.round((stats.wins / (stats.wins + stats.losses)) * 100)
     : 0;
 
   if (loading) return (
@@ -101,14 +115,14 @@ export function PublicProfile() {
       <div className="absolute top-20 right-10 w-64 h-64 bg-blue-600/5 blur-[100px] rounded-full pointer-events-none" />
 
       <div className="container max-w-4xl mx-auto px-4 pt-12 relative z-10">
-        
+
         {/* Navigation & Actions */}
         <div className="flex justify-between items-center mb-10">
           <button onClick={() => nav(-1)} className="flex items-center gap-2 text-gray-500 hover:text-white transition-colors group">
             <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
             <span className="text-[10px] font-black uppercase tracking-[0.2em]">Back</span>
           </button>
-          <button 
+          <button
             onClick={() => {
               navigator.clipboard.writeText(window.location.href);
               alert("Profile link copied!");
@@ -122,9 +136,9 @@ export function PublicProfile() {
         {/* --- PROFILE HEADER CARD --- */}
         <Card className="bg-[#0a0a0c] border-gray-800 p-0 rounded-[2.5rem] overflow-hidden shadow-2xl mb-8">
           <div className="h-32 bg-gradient-to-r from-blue-900/40 via-blue-600/20 to-black relative">
-             <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20" />
+            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20" />
           </div>
-          
+
           <div className="px-8 pb-10">
             <div className="relative -mt-16 flex flex-col items-center md:flex-row md:items-end md:gap-8 mb-8">
               <div className="relative">
@@ -133,7 +147,7 @@ export function PublicProfile() {
                   <Trophy size={18} />
                 </div>
               </div>
-              
+
               <div className="mt-6 text-center md:text-left flex-1">
                 <div className="flex items-center justify-center md:justify-start gap-3">
                   <h1 className="text-4xl md:text-5xl font-black uppercase italic tracking-tighter text-white leading-none">
@@ -148,17 +162,17 @@ export function PublicProfile() {
 
             {/* Career Stats Grid */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 border-t border-gray-900 pt-8">
-              <StatItem label="Combat Points" value={stats.points.toLocaleString()} icon={<TrendingUp size={14}/>} />
-              <StatItem label="Win Rate" value={`${winRate}%`} icon={<Trophy size={14}/>} />
-              <StatItem label="Total Wins" value={stats.wins} icon={<Swords size={14}/>} color="text-green-500" />
-              <StatItem label="Platforms" value={profile.platform?.length || 0} icon={<Gamepad2 size={14}/>} />
+              <StatItem label="Combat Points" value={stats.points.toLocaleString()} icon={<TrendingUp size={14} />} />
+              <StatItem label="Win Rate" value={`${winRate}%`} icon={<Trophy size={14} />} />
+              <StatItem label="Total Wins" value={stats.wins} icon={<Swords size={14} />} color="text-green-500" />
+              <StatItem label="Platforms" value={profile.platform?.length || 0} icon={<Gamepad2 size={14} />} />
             </div>
           </div>
         </Card>
 
         {/* --- CONTENT GRID --- */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          
+
           {/* About/Bio Section */}
           <div className="md:col-span-1 space-y-6">
             <div className="bg-[#0a0a0c] border border-gray-800 p-6 rounded-3xl">
@@ -168,7 +182,7 @@ export function PublicProfile() {
               <p className="text-gray-400 text-sm leading-relaxed font-medium italic">
                 {profile.bio || "No combat record summary provided by this operative."}
               </p>
-              
+
               <div className="mt-8">
                 <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-600 mb-4">Active Zones</h3>
                 <div className="flex flex-wrap gap-2">
@@ -187,7 +201,7 @@ export function PublicProfile() {
             <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-500 mb-4 flex items-center gap-2">
               <History size={14} /> Combat Record (Latest)
             </h3>
-            
+
             <div className="space-y-3">
               {matches.length > 0 ? matches.map((m) => (
                 <div key={m.id} className="bg-[#0a0a0c] border border-gray-800/40 p-5 rounded-2xl flex items-center justify-between group hover:border-blue-500/30 transition-all">
@@ -219,7 +233,7 @@ export function PublicProfile() {
 }
 
 // Internal Helper for Stats
-function StatItem({ label, value, icon, color = "text-white" }: any) {
+function StatItem({ label, value, icon, color = 'text-white' }: StatItemProps) {
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-2 text-gray-600">

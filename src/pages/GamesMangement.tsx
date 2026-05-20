@@ -3,20 +3,27 @@ import { supabase } from '../supabaseClient';
 import { isCurrentUserAdmin } from '../lib/admin';
 import { useNavigate } from 'react-router-dom';
 import { Button, Card, Input, Select } from '../components/ui';
-import { 
-  Gamepad2, 
-  Plus, 
-  Trash2, 
-  ArrowLeft, 
-  LayoutGrid, 
+import {
+  Gamepad2,
+  Plus,
+  Trash2,
+  ArrowLeft,
+  LayoutGrid,
   Monitor,
   Smartphone,
   Cpu
 } from 'lucide-react';
 
+interface Game {
+  id: string;
+  name: string;
+  slug: string;
+  platform: string;
+}
+
 export function GamesManagement() {
   const nav = useNavigate();
-  const [games, setGames] = React.useState<any[]>([]);
+  const [games, setGames] = React.useState<Game[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [isAdmin, setIsAdmin] = React.useState<boolean | null>(null);
 
@@ -41,7 +48,7 @@ export function GamesManagement() {
 
   async function fetchGames() {
     setLoading(true);
-    const { data } = await supabase.from('games').select('*').order('name');
+    const { data } = await supabase.from('games').select('*').order('name') as { data: Game[] | null; error: unknown };
     setGames(data || []);
     setLoading(false);
   }
@@ -49,13 +56,13 @@ export function GamesManagement() {
   async function handleAddGame(e: React.FormEvent) {
     e.preventDefault();
     setAdding(true);
-    
+
     const { error } = await supabase
       .from('games')
-      .insert([{ 
-        name: newName, 
+      .insert([{
+        name: newName,
         slug: newSlug.toLowerCase().replace(/\s+/g, '-'),
-        platform: newPlatform 
+        platform: newPlatform
       }]);
 
     if (!error) {
@@ -87,7 +94,7 @@ export function GamesManagement() {
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-600/5 blur-[120px] rounded-full pointer-events-none" />
 
       <div className="container mx-auto px-4 pt-12 max-w-5xl relative z-10">
-        
+
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
           <div>
@@ -99,7 +106,7 @@ export function GamesManagement() {
               Game <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-cyan-400">Registry</span>
             </h1>
           </div>
-          
+
           <Card className="bg-[#0a0a0c] border-gray-800 p-6 rounded-2xl flex items-center gap-4 shadow-2xl">
             <div className="p-3 bg-blue-600 rounded-xl shadow-[0_0_20px_rgba(37,99,235,0.3)]">
               <LayoutGrid size={24} />
@@ -112,7 +119,7 @@ export function GamesManagement() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
+
           {/* Sidebar: Add Form */}
           <Card className="lg:col-span-1 bg-[#0a0a0c] border-gray-800 p-8 h-fit sticky top-8 rounded-3xl shadow-2xl border-t border-t-white/5">
             <h2 className="text-xs font-black uppercase tracking-[0.3em] mb-8 flex items-center gap-2 text-blue-500">
@@ -121,29 +128,29 @@ export function GamesManagement() {
             <form onSubmit={handleAddGame} className="space-y-6">
               <div className="space-y-2">
                 <label className="text-[9px] font-black uppercase text-gray-600 tracking-widest">Display Name</label>
-                <Input 
-                  placeholder="FC 26 / MK 1" 
-                  value={newName} 
-                  onChange={(e: { target: { value: React.SetStateAction<string>; }; }) => setNewName(e.target.value)}
+                <Input
+                  placeholder="FC 26 / MK 1"
+                  value={newName}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewName(e.target.value)}
                   className="bg-black border-gray-800 font-black uppercase italic placeholder:text-gray-800"
                   required
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-[9px] font-black uppercase text-gray-600 tracking-widest">System Slug</label>
-                <Input 
-                  placeholder="ea-sports-fc-26" 
-                  value={newSlug} 
-                  onChange={(e: { target: { value: React.SetStateAction<string>; }; }) => setNewSlug(e.target.value)}
+                <Input
+                  placeholder="ea-sports-fc-26"
+                  value={newSlug}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewSlug(e.target.value)}
                   className="bg-black border-gray-800 font-mono text-xs text-blue-400"
                   required
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-[9px] font-black uppercase text-gray-600 tracking-widest">Primary Platform</label>
-                <Select 
-                  value={newPlatform} 
-                  onChange={(e: { target: { value: React.SetStateAction<string>; }; }) => setNewPlatform(e.target.value)}
+                <Select
+                  value={newPlatform}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setNewPlatform(e.target.value)}
                   className="bg-black border-gray-800 font-bold"
                 >
                   <option className="bg-black">All</option>
@@ -162,8 +169,8 @@ export function GamesManagement() {
           {/* Main: Game List */}
           <div className="lg:col-span-2 space-y-3">
             {games.map(game => (
-              <div 
-                key={game.id} 
+              <div
+                key={game.id}
                 className="group flex items-center justify-between p-6 bg-[#0a0a0c]/60 border border-gray-800/50 rounded-2xl hover:border-blue-500/40 hover:bg-blue-600/[0.02] transition-all duration-300"
               >
                 <div className="flex items-center gap-6">
@@ -182,7 +189,7 @@ export function GamesManagement() {
                     </div>
                   </div>
                 </div>
-                <button 
+                <button
                   onClick={() => handleDelete(game.id)}
                   className="p-4 text-gray-800 hover:text-red-500 hover:bg-red-500/5 rounded-xl transition-all"
                 >

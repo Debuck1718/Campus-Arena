@@ -135,6 +135,7 @@ begin
 end;
 $$ language plpgsql;
 
+drop trigger if exists tournament_capacity_trigger on tournament_players;
 create trigger tournament_capacity_trigger
 before insert on tournament_players
 for each row execute function check_tournament_capacity();
@@ -203,6 +204,7 @@ begin
 end;
 $$ language plpgsql;
 
+drop trigger if exists match_result_confirm_trigger on match_results;
 create trigger match_result_confirm_trigger
 after update of status on match_results
 for each row

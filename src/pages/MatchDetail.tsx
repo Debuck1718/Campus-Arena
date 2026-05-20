@@ -26,6 +26,10 @@ export function MatchDetail() {
   const name = (pid?: string | null) => (pid ? nameMap.get(pid) || pid : 'TBD');
   const avatar = (pid?: string | null) => (pid ? avatarMap.get(pid) || null : null);
   const involved = uid && (uid === match?.player1_id || uid === match?.player2_id);
+  const gameData = match?.games ?? null;
+  const supportsInPerson = Array.isArray(gameData?.platform_support)
+    ? gameData.platform_support.includes('In-Person')
+    : false;
 
   if (isLoading) return <div className="container py-12 text-center text-gray-400">Loading Arena...</div>;
   if (!match) return <div className="container py-12 text-center text-red-500">Match not found.</div>;
@@ -43,15 +47,18 @@ export function MatchDetail() {
           <Card className="bg-gray-900 border-gray-800 shadow-2xl overflow-hidden">
             <div className="p-8 border-l-4 border-blue-600 bg-gradient-to-r from-blue-900/10 to-transparent">
               <div className="flex justify-between items-center py-4">
-                
+                <div className="text-sm uppercase tracking-[0.3em] text-blue-500 font-black">
+                  {gameData?.name || 'Exhibition'}
+                </div>
+
                 {/* Player 1 Area */}
                 <div className="flex flex-col items-center gap-4 flex-1">
                   <div className="relative group">
                     <div className="absolute -inset-1 bg-blue-500 rounded-full blur opacity-20 group-hover:opacity-40 transition"></div>
                     {/* FIXED: Added 'alt' prop and passed size/className directly */}
-                    <Avatar 
-                      src={avatar(match.player1_id)} 
-                      alt={name(match.player1_id)} 
+                    <Avatar
+                      src={avatar(match.player1_id)}
+                      alt={name(match.player1_id)}
                       size={80}
                       className="border-2 border-gray-700 shadow-xl"
                     />
@@ -69,9 +76,9 @@ export function MatchDetail() {
                   <div className="relative group">
                     <div className="absolute -inset-1 bg-blue-500 rounded-full blur opacity-20 group-hover:opacity-40 transition"></div>
                     {/* FIXED: Added 'alt' prop and passed size/className directly */}
-                    <Avatar 
-                      src={avatar(match.player2_id)} 
-                      alt={name(match.player2_id)} 
+                    <Avatar
+                      src={avatar(match.player2_id)}
+                      alt={name(match.player2_id)}
                       size={80}
                       className="border-2 border-gray-700 shadow-xl"
                     />
@@ -87,13 +94,22 @@ export function MatchDetail() {
         </div>
 
         <aside className="space-y-6">
+          <div className="rounded-2xl bg-[#0a0a0c] border border-gray-800 p-4 text-sm text-gray-400">
+            {supportsInPerson ? (
+              <>
+                This match supports in-person coordination. Use the chat below to agree on a hostel location and schedule your meetup.
+              </>
+            ) : (
+              <>Use the chat below to agree on time, format, and match details with your opponent.</>
+            )}
+          </div>
           {/* Chat Container with stylized border */}
           <div className="border border-gray-800 rounded-2xl overflow-hidden bg-gray-900/50 backdrop-blur-sm">
             <Chat chatId={chatId} />
           </div>
-          
+
           {involved && match.status !== 'completed' && (
-            <Link to={`/tournaments/${tournamentId}/submit/${matchId}`}>
+            <Link to={tournamentId ? `/tournaments/${tournamentId}/submit/${matchId}` : `/matches/${matchId}/submit`}>
               <Button className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-xl shadow-[0_0_20px_rgba(37,99,235,0.2)] transition-all uppercase tracking-widest text-xs">
                 Submit Battle Result
               </Button>

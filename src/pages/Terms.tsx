@@ -1,11 +1,11 @@
 import React from 'react';
 import { SEO } from '../components/SEO';
-import { 
-  ShieldCheck, 
-  Scale, 
-  Gavel, 
-  UserX, 
-  FileText, 
+import {
+  ShieldCheck,
+  Scale,
+  Gavel,
+  UserX,
+  FileText,
   AlertCircle,
   ChevronRight
 } from 'lucide-react';
@@ -20,21 +20,21 @@ export function Terms(): JSX.Element {
   return (
     <div className="min-h-screen bg-[#050505] text-gray-300 pb-20 relative overflow-hidden">
       <SEO title="Terms of Service • CampusArena" description="The official rules and legal guidelines for CampusArena." />
-      
+
       {/* Background Decor */}
       <div className="absolute top-0 left-0 w-full h-[400px] bg-blue-600/5 blur-[120px] pointer-events-none" />
 
       <div className="container max-w-5xl mx-auto px-4 pt-16 relative z-10">
         <div className="flex flex-col md:flex-row gap-12">
-          
+
           {/* --- LEFT: NAVIGATION STICKY --- */}
           <aside className="md:w-64 shrink-0">
             <div className="sticky top-24 space-y-1">
               <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-500 mb-6 px-4">Legal Directory</h3>
               <nav>
                 {['User Conduct', 'Fair Play', 'Account Security', 'Dispute Resolution', 'Termination'].map((item) => (
-                  <a 
-                    key={item} 
+                  <a
+                    key={item}
                     href={`#${item.toLowerCase().replace(' ', '-')}`}
                     className="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-white/5 hover:text-white transition-all text-xs font-bold group"
                   >
@@ -71,14 +71,14 @@ export function Terms(): JSX.Element {
             </header>
 
             <div className="space-y-16 prose prose-invert prose-sm max-w-none">
-              
+
               <section id="user-conduct">
                 <div className="flex items-center gap-3 mb-6">
                   <Scale size={18} className="text-blue-500" />
                   <h2 className="text-xl font-black uppercase italic tracking-tight m-0 text-white">1. User Conduct</h2>
                 </div>
                 <p>
-                  CampusArena is built on competitive integrity. Users must provide accurate identity information and maintain professional sportsmanship. 
+                  CampusArena is built on competitive integrity. Users must provide accurate identity information and maintain professional sportsmanship.
                   Harassment, hate speech, or toxic behavior in match lobbies or profiles will result in immediate sanctioning.
                 </p>
               </section>
@@ -113,8 +113,8 @@ export function Terms(): JSX.Element {
                   <h2 className="text-xl font-black uppercase italic tracking-tight m-0 text-white">3. Account Responsibility</h2>
                 </div>
                 <p>
-                  You are solely responsible for the security of your authentication tokens and account access. CampusArena staff will 
-                  never ask for your password. Any match results submitted via your account are deemed final unless proven otherwise through the 
+                  You are solely responsible for the security of your authentication tokens and account access. CampusArena staff will
+                  never ask for your password. Any match results submitted via your account are deemed final unless proven otherwise through the
                   Dispute Resolution system.
                 </p>
               </section>
@@ -122,10 +122,10 @@ export function Terms(): JSX.Element {
               <section id="termination">
                 <div className="flex items-center gap-3 mb-6">
                   <UserX size={18} className="text-red-500" />
-                  <h2 className="text-xl font-black uppercase italic tracking-tight m-0 text-white text-red-500">4. Service Suspension</h2>
+                  <h2 className="text-xl font-black uppercase italic tracking-tight m-0 text-red-500">4. Service Suspension</h2>
                 </div>
                 <p className="border-l-2 border-red-900/50 pl-6 italic text-gray-400">
-                  CampusArena reserves the right to terminate access, wipe career statistics, or ban hardware IDs of any user found to be 
+                  CampusArena reserves the right to terminate access, wipe career statistics, or ban hardware IDs of any user found to be
                   undermining the competitive ecosystem. Decisions made by the High Council (Admins) are final.
                 </p>
               </section>
