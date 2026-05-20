@@ -72,9 +72,10 @@ export function TournamentDetail() {
       .flatMap((m: { player1_id?: string; player2_id?: string; winner_id?: string }) => [m.player1_id, m.player2_id, m.winner_id])
       .filter((pid): pid is string => Boolean(pid))
   ];
-  const { nameMap } = useProfilesMap(idList);
+  const { nameMap, avatarMap } = useProfilesMap(idList);
   const chatId = useTournamentChatId(id);
   const name = (pid?: string | null) => (pid ? nameMap.get(pid) || pid : 'TBD');
+  const avatar = (pid?: string | null) => (pid ? avatarMap.get(pid) || null : null);
 
   async function handleAction(rpcName: string) {
     try {
@@ -163,6 +164,7 @@ export function TournamentDetail() {
                         m={m}
                         uid={uid}
                         name={name}
+                        avatar={avatar}
                         tournamentId={id!}
                       />
                     ))}
@@ -223,7 +225,7 @@ export function TournamentDetail() {
 }
 
 // Sub-component for individual Match Cards
-function MatchCard({ m, uid, name, tournamentId }: any) {
+function MatchCard({ m, uid, name, avatar, tournamentId }: any) {
   const involved = uid && (uid === m.player1_id || uid === m.player2_id);
   const isP1Winner = m.winner_id === m.player1_id;
   const isP2Winner = m.winner_id === m.player2_id;
@@ -237,15 +239,35 @@ function MatchCard({ m, uid, name, tournamentId }: any) {
         <span className={m.status === 'completed' ? 'text-green-500' : 'text-blue-500'}>{m.status}</span>
       </div>
 
-      <div className="space-y-3 mb-4">
-        <div className={`flex justify-between items-center ${isP1Winner ? 'text-white' : 'text-gray-500'}`}>
-          <span className="text-sm font-bold uppercase italic tracking-tight">{name(m.player1_id)}</span>
-          {isP1Winner && <ShieldCheck size={14} className="text-blue-500" />}
+      <div className="space-y-4 mb-4">
+        <div className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${isP1Winner ? 'bg-blue-600/20 border border-blue-500/40' : 'bg-white/5 border border-white/10'
+          }`}>
+          {avatar(m.player1_id) && (
+            <img
+              src={avatar(m.player1_id)}
+              alt={name(m.player1_id)}
+              className="w-12 h-12 rounded-full object-cover border-2 border-blue-500/40 flex-shrink-0"
+            />
+          )}
+          <div className="flex-1 min-w-0 flex justify-between items-center gap-2">
+            <span className="text-base font-bold uppercase italic tracking-tight text-blue-300 bg-black/30 px-2 py-1 rounded truncate">{name(m.player1_id)}</span>
+            {isP1Winner && <ShieldCheck size={16} className="text-blue-500 flex-shrink-0" />}
+          </div>
         </div>
         <div className="h-[1px] bg-white/5" />
-        <div className={`flex justify-between items-center ${isP2Winner ? 'text-white' : 'text-gray-500'}`}>
-          <span className="text-sm font-bold uppercase italic tracking-tight">{name(m.player2_id)}</span>
-          {isP2Winner && <ShieldCheck size={14} className="text-blue-500" />}
+        <div className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${isP2Winner ? 'bg-blue-600/20 border border-blue-500/40' : 'bg-white/5 border border-white/10'
+          }`}>
+          {avatar(m.player2_id) && (
+            <img
+              src={avatar(m.player2_id)}
+              alt={name(m.player2_id)}
+              className="w-12 h-12 rounded-full object-cover border-2 border-blue-500/40 flex-shrink-0"
+            />
+          )}
+          <div className="flex-1 min-w-0 flex justify-between items-center gap-2">
+            <span className="text-base font-bold uppercase italic tracking-tight text-blue-300 bg-black/30 px-2 py-1 rounded truncate">{name(m.player2_id)}</span>
+            {isP2Winner && <ShieldCheck size={16} className="text-blue-500 flex-shrink-0" />}
+          </div>
         </div>
       </div>
 

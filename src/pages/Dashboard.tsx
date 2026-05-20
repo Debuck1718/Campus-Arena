@@ -183,14 +183,14 @@ export function Dashboard() {
             </Link>
             <div className="flex flex-col sm:flex-row gap-3 items-center">
               <select
-                className="input bg-gray-900 border border-gray-800 text-white"
+                className="input bg-gradient-to-r from-blue-900/30 to-blue-800/20 border-2 border-blue-600 text-white font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all shadow-lg shadow-blue-900/20"
                 value={selectedGame}
                 onChange={(e) => setSelectedGame(e.target.value)}
                 disabled={gamesLoading}
               >
-                <option value="">Select game for Quick Match</option>
+                <option value="" className="bg-gray-900 text-white">Select game for Quick Match</option>
                 {games?.map((game) => (
-                  <option key={game.id} value={game.id}>
+                  <option key={game.id} value={game.id} className="bg-gray-900 text-white">
                     {game.name}
                   </option>
                 ))}
