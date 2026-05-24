@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { useNavigate } from 'react-router-dom';
-import { Card, SectionTitle, Input, Button } from '../components/ui';
+import { Card, SectionTitle, Button } from '../components/ui';
 import { useToast } from '../hooks/useNotifications';
 
 interface UserOption {
@@ -32,6 +32,7 @@ export function CreateMatch() {
       const uid = session.user?.id;
       if (!uid) return;
 
+      // Pull current operative directories directly
       const { data: userList, error: usersError } = await supabase
         .from('profiles')
         .select('id, username, is_online, last_seen_at')
@@ -52,43 +53,31 @@ export function CreateMatch() {
     e.preventDefault();
     setErr(null);
     setLoading(true);
+
     const { data: sess } = await supabase.auth.getUser();
     const uid = sess.user?.id;
     if (!uid) {
-      setErr('Not authenticated');
-      setLoading(false);
-      return;
-    }
-    if (!opponent || !game) {
-      setErr('Select opponent and game');
+      setErr('Session expired. Re-authenticate.');
       setLoading(false);
       return;
     }
 
     try {
-      // Check for duplicate pending match in same game
-      const { data: existing, error: existingError } = await supabase
+      // Look for pre-existing pending tokens to eliminate abuse loops
+      const { data: existing } = await supabase
         .from('matches')
         .select('id')
         .eq('player1_id', uid)
+        .eq('player2_id', opponent)
         .eq('game_id', game)
-        .is('tournament_id', null)
-        .eq('status', 'pending')
-        .limit(1) as { data: { id: string }[] | null; error: unknown };
+        .eq('status', 'pending');
 
-      if (existingError) {
-        setErr('Unable to create challenge. Please try again.');
+      if (existing && existing.length > 0) {
+        setErr('A pending challenge already exists between you two for this game.');
         setLoading(false);
         return;
       }
 
-      if (existing?.length) {
-        setErr('You already have a pending challenge in this game. Wait until it is accepted or try a different game.');
-        setLoading(false);
-        return;
-      }
-
-      // Create the match
       const { data, error } = await supabase
         .from('matches')
         .insert({
@@ -104,96 +93,81 @@ export function CreateMatch() {
         .single() as { data: { id: string } | null; error: unknown };
 
       if (error || !data?.id) {
-        const errorMsg = (error as any)?.message || 'Failed to create challenge';
-        // Check if it's a foreign key or constraint error
-        if (errorMsg.includes('foreign key') || errorMsg.includes('constraint')) {
-          setErr('Invalid opponent or game selection. Please try again.');
-        } else {
-          setErr(errorMsg);
-        }
+        setErr('Deployment execution failure. Selection mapping error.');
         setLoading(false);
         return;
       }
 
-      // Get opponent and game info for notification
       const selectedOpponent = users.find(u => u.id === opponent);
       const selectedGame = games.find(g => g.id === game);
-      const isOpponentOnline = selectedOpponent?.is_online ?? false;
 
-      // Send notification to opponent
-      const notificationPayload = {
-        match_id: data.id,
-        game_id: game,
-        created_by: uid,
-        opponent_username: selectedOpponent?.username || 'Unknown Player',
-        game_name: selectedGame?.name || 'Unknown Game',
-        message: `${selectedOpponent?.username || 'A player'} challenged you to ${selectedGame?.name || 'a game'}!`
-      };
-
+      // Deploy telemetry notification package directly into their tray logs
       await supabase.from('notifications').insert({
         profile_id: opponent,
         type: 'match_challenge',
-        payload: notificationPayload,
+        payload: {
+          match_id: data.id,
+          game_id: game,
+          created_by: uid,
+          opponent_username: selectedOpponent?.username || 'Target User',
+          game_name: selectedGame?.name || 'Arena Sandbox',
+          message: `URGENT: Challenged by another player in ${selectedGame?.name || 'Simulation'}!`
+        },
         read_at: null
       });
 
-      if (!isOpponentOnline) {
-        notify('Challenge sent! Your opponent will be notified when they come online.', 'info');
-      } else {
-        notify('Challenge sent to your opponent!', 'success');
-      }
-
+      notify('Challenge transmitted successfully!', 'success');
       setLoading(false);
-      nav(`/matches/${data.id}`);
-    } catch (ex: any) {
-      setErr('An unexpected error occurred. Please try again.');
-      console.error('Match creation error:', ex);
+      nav('/dashboard'); // Take them back to dashboard to track state confirmations
+    } catch (ex) {
+      setErr('Unexpected internal server interface disruption.');
       setLoading(false);
     }
   }
 
   return (
-    <div className="container max-w-lg py-8">
-      <SectionTitle>Challenge a Player</SectionTitle>
-      <Card>
-        <form onSubmit={handleSubmit} className="space-y-4">
+    <div className="container max-w-lg py-12">
+      <SectionTitle>Issue Direct Combat Contract</SectionTitle>
+      <Card className="bg-[#0a0a0c] border border-gray-800 p-6 rounded-2xl">
+        <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="label">Opponent</label>
-            <select className="input w-full" value={opponent} onChange={e => setOpponent(e.target.value)} required>
-              <option value="">Select opponent</option>
+            <label className="block text-xs font-black uppercase tracking-widest text-gray-400 mb-2">Target Opponent</label>
+            <select 
+              className="w-full bg-black border border-gray-800 text-white rounded-xl p-3 font-semibold focus:border-blue-500 outline-none" 
+              value={opponent} 
+              onChange={e => setOpponent(e.target.value)} 
+              required
+            >
+              <option value="" className="text-gray-500">Select opponent handle...</option>
               {users.map(u => (
-                <option key={u.id} value={u.id}>
-                  {u.username} {u.is_online ? '🟢 Online' : '⚪ Offline'}
+                <option key={u.id} value={u.id} className="bg-[#0a0a0c]">
+                  {u.username.toUpperCase()}
                 </option>
               ))}
             </select>
-            {opponent && (
-              <p className="text-xs text-gray-500 mt-2">
-                {users.find(u => u.id === opponent)?.is_online
-                  ? '✓ This player is online right now'
-                  : '⚠ This player is offline. They will receive a notification.'}
-              </p>
-            )}
           </div>
+
           <div>
-            <label className="label">Game</label>
-            <select className="input w-full" value={game} onChange={e => setGame(e.target.value)} required>
-              <option value="">Select game</option>
+            <label className="block text-xs font-black uppercase tracking-widest text-gray-400 mb-2">Combat Arena (Game)</label>
+            <select 
+              className="w-full bg-black border border-gray-800 text-white rounded-xl p-3 font-semibold focus:border-blue-500 outline-none" 
+              value={game} 
+              onChange={e => setGame(e.target.value)} 
+              required
+            >
+              <option value="" className="text-gray-500">Select rule system...</option>
               {games.map(g => (
-                <option key={g.id} value={g.id}>
+                <option key={g.id} value={g.id} className="bg-[#0a0a0c]">
                   {g.name}
                 </option>
               ))}
             </select>
-            {game && games.find(g => g.id === game)?.name.toLowerCase().includes('pes') && (
-              <p className="text-xs text-blue-400 mt-2">
-                ✓ In-person match - coordinate location in chat
-              </p>
-            )}
           </div>
-          {err && <div className="text-red-500 text-xs">{err}</div>}
-          <Button type="submit" disabled={loading}>
-            {loading ? 'Creating Challenge...' : 'Create Match'}
+
+          {err && <div className="text-red-500 text-xs font-mono font-bold bg-red-500/10 p-3 rounded-lg border border-red-500/20">{err}</div>}
+          
+          <Button type="submit" disabled={loading} className="w-full bg-blue-600 text-white font-black uppercase tracking-widest py-4 rounded-xl">
+            {loading ? 'TRANSMITTING CODES...' : 'DISPATCH CHALLENGE'}
           </Button>
         </form>
       </Card>

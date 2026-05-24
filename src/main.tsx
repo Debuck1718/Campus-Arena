@@ -169,3 +169,12 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     </QueryClientProvider>
   </React.StrictMode>
 );
+
+// PWA Service Worker Registration
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then((reg) => console.log('CampusArena: SW Registered successfully on scope: ', reg.scope))
+      .catch((err) => console.error('CampusArena: SW Registration failed: ', err));
+  });
+}
