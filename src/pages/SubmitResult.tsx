@@ -8,8 +8,10 @@ import { Upload, Trophy, AlertCircle } from 'lucide-react';
 export function SubmitResult() {
   const { matchId } = useParams<{ matchId: string }>();
   const nav = useNavigate();
-  const [score1, setScore1] = React.useState<number>(0);
-  const [score2, setScore2] = React.useState<number>(0);
+  
+  // FIX: Allow state to hold an empty string when user clears the input field
+  const [score1, setScore1] = React.useState<number | ''>(0);
+  const [score2, setScore2] = React.useState<number | ''>(0);
   const [file, setFile] = React.useState<File | null>(null);
   const [err, setErr] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
@@ -38,11 +40,15 @@ export function SubmitResult() {
       return;
     }
 
+    // FIX: Default empty values to 0 right before saving payload to Postgres
+    const finalScore1 = score1 === '' ? 0 : score1;
+    const finalScore2 = score2 === '' ? 0 : score2;
+
     const { error } = await supabase.from('match_results').insert({
       match_id: matchId,
       reported_by: user.id,
-      score_player1: score1,
-      score_player2: score2,
+      score_player1: finalScore1,
+      score_player2: finalScore2,
       screenshot_url: filePath,
       status: 'pending',
     });
@@ -54,6 +60,16 @@ export function SubmitResult() {
       nav(-1);
     }
   }
+
+  // FIX: Handle parsing state dynamically to allow users to completely clear fields
+  const handleScoreChange = (value: string, setScore: React.Dispatch<React.SetStateAction<number | ''>>) => {
+    if (value === '') {
+      setScore('');
+    } else {
+      const parsed = parseInt(value, 10);
+      setScore(isNaN(parsed) ? 0 : parsed);
+    }
+  };
 
   return (
     <div className="container mx-auto max-w-lg px-4 py-8">
@@ -71,8 +87,10 @@ export function SubmitResult() {
                 type="number"
                 min={0}
                 value={score1}
-                onChange={(e) => setScore1(parseInt(e.target.value || '0', 10))}
+                // FIX: Custom parser lets backspace work normally
+                onChange={(e) => handleScoreChange(e.target.value, setScore1)}
                 className="bg-black border-gray-700 text-lg"
+                placeholder="0"
               />
             </div>
             <div className="space-y-2">
@@ -81,8 +99,10 @@ export function SubmitResult() {
                 type="number"
                 min={0}
                 value={score2}
-                onChange={(e) => setScore2(parseInt(e.target.value || '0', 10))}
+                // FIX: Custom parser lets backspace work normally
+                onChange={(e) => handleScoreChange(e.target.value, setScore2)}
                 className="bg-black border-gray-700 text-lg"
+                placeholder="0"
               />
             </div>
           </div>

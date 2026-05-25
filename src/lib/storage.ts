@@ -1,7 +1,7 @@
 import { supabase } from '../supabaseClient';
 
 const AVATARS_BUCKET = 'avatars';
-const MATCH_EVIDENCE_BUCKET = 'match-screenshots';
+const MATCH_EVIDENCE_BUCKET = 'evidence'; // FIX: Swapped from 'match-screenshots' to 'evidence'
 
 export async function uploadAvatar(file: File, userId: string): Promise<string> {
   const ext = file.name.split('.').pop() || 'jpg';
@@ -29,6 +29,7 @@ export async function uploadMatchEvidence(file: File, matchId: string): Promise<
   const safeExt = ext.toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
   const path = `${matchId}/${Date.now()}.${safeExt}`;
 
+  // Now points securely to the 'evidence' bucket
   const { error } = await supabase.storage.from(MATCH_EVIDENCE_BUCKET).upload(path, file, {
     cacheControl: '3600',
     upsert: true,
@@ -41,6 +42,7 @@ export async function uploadMatchEvidence(file: File, matchId: string): Promise<
 
 export async function getSignedUrl(path: string, expires = 3600): Promise<string | null> {
   if (!path) return null;
+  // Now requests signatures from the 'evidence' bucket
   const { data, error } = await supabase.storage
     .from(MATCH_EVIDENCE_BUCKET)
     .createSignedUrl(path, expires);
@@ -56,6 +58,7 @@ export async function getSignedUrls(
   expires = 3600
 ): Promise<Record<string, string>> {
   if (!paths.length) return {};
+  // Now batch processes routes from the 'evidence' bucket
   const { data, error } = await supabase.storage
     .from(MATCH_EVIDENCE_BUCKET)
     .createSignedUrls(paths, expires);
