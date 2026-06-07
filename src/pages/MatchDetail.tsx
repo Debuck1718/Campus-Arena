@@ -19,6 +19,8 @@ export function MatchDetail() {
 
   const ids = [match?.player1_id, match?.player2_id].filter(Boolean) as string[];
   const { nameMap, avatarMap } = useProfilesMap(ids);
+  
+  // Resolve the single source of truth for the match chat channel room
   const chatId = useMatchChatId(matchId);
 
   const name = (pid?: string | null) => (pid ? nameMap.get(pid) || pid : 'TBD');
@@ -66,7 +68,6 @@ export function MatchDetail() {
                       className="border-2 border-gray-700 shadow-xl relative z-10"
                     />
                   </div>
-                  {/* FIX: Increased readability dramatically with tracking adjustments */}
                   <span className="font-black text-xl text-white tracking-tight break-all">
                     {name(match.player1_id)}
                   </span>
@@ -90,7 +91,6 @@ export function MatchDetail() {
                       className="border-2 border-gray-700 shadow-xl relative z-10"
                     />
                   </div>
-                  {/* FIX: Increased readability dramatically with tracking adjustments */}
                   <span className="font-black text-xl text-white tracking-tight break-all">
                     {name(match.player2_id)}
                   </span>
@@ -113,9 +113,15 @@ export function MatchDetail() {
             )}
           </div>
           
-          {/* Chat Container with stylized border */}
-          <div className="border border-gray-800 rounded-2xl overflow-hidden bg-gray-900/50 backdrop-blur-sm">
-            <Chat chatId={chatId} />
+          {/* Chat Container with stylized border protection */}
+          <div className="border border-gray-800 rounded-2xl overflow-hidden bg-gray-900/50 backdrop-blur-sm min-h-[350px] flex flex-col justify-between">
+            {chatId ? (
+              <Chat chatId={chatId} />
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-xs uppercase tracking-widest text-gray-500 font-bold animate-pulse">
+                Initializing encrypted channel...
+              </div>
+            )}
           </div>
 
           {involved && match.status !== 'completed' && (
