@@ -9,7 +9,7 @@ export function SubmitResult() {
   const { matchId } = useParams<{ matchId: string }>();
   const nav = useNavigate();
   
-  // FIX: Allow state to hold an empty string when user clears the input field
+  // State accepts number or empty string to allow seamless input clearing
   const [score1, setScore1] = React.useState<number | ''>(0);
   const [score2, setScore2] = React.useState<number | ''>(0);
   const [file, setFile] = React.useState<File | null>(null);
@@ -40,11 +40,12 @@ export function SubmitResult() {
       return;
     }
 
-    // FIX: Default empty values to 0 right before saving payload to Postgres
+    // Default blank values to 0 right before database insertion
     const finalScore1 = score1 === '' ? 0 : score1;
     const finalScore2 = score2 === '' ? 0 : score2;
 
-    const { error } = await supabase.from('match_results').insert({
+    // 1. Insert into match_results
+    const { error: resultError } = await supabase.from('match_results').insert({
       match_id: matchId,
       reported_by: user.id,
       score_player1: finalScore1,
@@ -53,15 +54,26 @@ export function SubmitResult() {
       status: 'pending',
     });
 
+    if (resultError) {
+      setErr('Database error: ' + resultError.message);
+      setLoading(false);
+      return;
+    }
+
+    // 2. Synchronize the parent match table status to alert the system of a pending report
+    const { error: matchUpdateError } = await supabase
+      .from('matches')
+      .update({ status: 'pending' })
+      .eq('id', matchId);
+
     setLoading(false);
-    if (error) {
-      setErr('Database error: ' + error.message);
+    if (matchUpdateError) {
+      setErr('Match state sync failure: ' + matchUpdateError.message);
     } else {
       nav(-1);
     }
   }
 
-  // FIX: Handle parsing state dynamically to allow users to completely clear fields
   const handleScoreChange = (value: string, setScore: React.Dispatch<React.SetStateAction<number | ''>>) => {
     if (value === '') {
       setScore('');
@@ -87,7 +99,6 @@ export function SubmitResult() {
                 type="number"
                 min={0}
                 value={score1}
-                // FIX: Custom parser lets backspace work normally
                 onChange={(e) => handleScoreChange(e.target.value, setScore1)}
                 className="bg-black border-gray-700 text-lg"
                 placeholder="0"
@@ -99,7 +110,6 @@ export function SubmitResult() {
                 type="number"
                 min={0}
                 value={score2}
-                // FIX: Custom parser lets backspace work normally
                 onChange={(e) => handleScoreChange(e.target.value, setScore2)}
                 className="bg-black border-gray-700 text-lg"
                 placeholder="0"

@@ -65,6 +65,9 @@ const EmptyState = () => (
 
 const MatchCard: React.FC<MatchCardProps> = ({ match, uid, name, avatar }) => {
   const involved = uid && (uid === match.player1_id || uid === match.player2_id);
+  
+  // Safe status evaluation across both matches row view parameters
+  const isPendingVerification = match.status === 'pending' || match.match_results_status === 'pending';
 
   return (
     <div className="group relative">
@@ -79,14 +82,15 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, uid, name, avatar }) => {
               <span className="text-[10px] text-gray-400 font-mono mt-1 font-bold uppercase">{new Date(match.scheduled_at).toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' })}</span>
             </div>
             <div className="px-2.5 py-1 rounded-md bg-gray-950 border border-gray-800">
-              <span className="text-[9px] font-black text-green-400 uppercase tracking-wider">● {match.status}</span>
+              <span className={`text-[9px] font-black uppercase tracking-wider ${isPendingVerification ? 'text-amber-400 animate-pulse' : 'text-green-400'}`}>
+                ● {isPendingVerification ? 'Pending Approval' : match.status}
+              </span>
             </div>
           </div>
 
           <div className="flex items-center justify-between gap-2 py-4 relative">
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-[1px] bg-gradient-to-r from-transparent via-gray-800 to-transparent"></div>
 
-            {/* HIGH CONTRAST OPPONENT NAMES: Explicit text-gray-100 and tracking-wide scales */}
             <div className="flex flex-col items-center gap-3 z-10 flex-1">
               <Avatar src={avatar(match.player1_id) || ''} alt={name(match.player1_id)} className="w-16 h-16 border-2 border-gray-800" />
               <span className="text-sm font-black text-gray-100 bg-gray-950/80 px-2 py-0.5 rounded-md border border-white/5 truncate w-full text-center uppercase tracking-wide">
@@ -94,8 +98,12 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, uid, name, avatar }) => {
               </span>
             </div>
 
-            <div className="z-10 bg-[#0a0a0c] px-3">
-              <span className="text-gray-500 font-black italic text-xl">VS</span>
+            <div className="z-10 bg-[#0a0a0c] px-3 py-1 border border-gray-800 rounded-md">
+              {match.score_player1 !== null && match.score_player1 !== undefined && match.score_player2 !== null && match.score_player2 !== undefined ? (
+                <span className="font-mono font-black text-blue-400 text-sm">{match.score_player1} : {match.score_player2}</span>
+              ) : (
+                <span className="text-gray-500 font-black italic text-xl">VS</span>
+              )}
             </div>
 
             <div className="flex flex-col items-center gap-3 z-10 flex-1">
@@ -112,7 +120,7 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, uid, name, avatar }) => {
                 Combat Hub
               </Button>
             </Link>
-            {involved && match.status !== 'completed' && match.status !== 'pending' && (
+            {involved && !isPendingVerification && match.status !== 'completed' && (
               <Link to={`/tournaments/${match.tournament_id || 'exhibition'}/submit/${match.match_id}`} className="flex-1">
                 <Button className="w-full bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black py-2 uppercase tracking-widest shadow-lg">
                   Report
@@ -212,7 +220,6 @@ export function Dashboard() {
               </Button>
             </Link>
             
-            {/* Quick Match Action */}
             <div className="flex flex-col sm:flex-row gap-3 items-center">
               <select
                 className="input bg-gradient-to-r from-blue-900/30 to-blue-800/20 border-2 border-blue-600 text-white font-semibold rounded-xl p-2"
@@ -254,7 +261,6 @@ export function Dashboard() {
           </div>
         </header>
 
-        {/* INTERCEPTED INCOMING DIRECT CHALLENGES BLOCK */}
         {incomingChallenges.length > 0 && (
           <div className="mb-10 bg-amber-600/10 border-2 border-amber-500/40 p-6 rounded-3xl animate-in fade-in zoom-in-95 duration-200">
             <h2 className="text-amber-400 font-black text-sm uppercase tracking-widest mb-4 flex items-center gap-2">

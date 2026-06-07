@@ -1,6 +1,6 @@
 import React from 'react';
 import { makeAdmin, isCurrentUserAdmin } from '../lib/admin';
-import { useNavigate } from 'react-router-dom'; // Added for navigation
+import { useNavigate } from 'react-router-dom';
 import {
   getAllUsers,
   removeUser,
@@ -22,20 +22,56 @@ import {
   Trash2,
   Eye,
   CheckCircle,
-  XCircle,
-  AlertTriangle,
-  Loader2,
   Gavel,
-  Clock,
-  ExternalLink,
-  PlusCircle,
   Gamepad2,
-  Zap
+  Zap,
+  PlusCircle,
+  ExternalLink
 } from 'lucide-react';
 import { Button, Card, Input } from '../components/ui';
 
-// Updated Tab Types
 type AdminTab = 'users' | 'matches' | 'disputes' | 'tournaments';
+
+// Inner component abstractions required by layout
+const TabButton = ({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) => (
+  <button
+    onClick={onClick}
+    className={`flex items-center gap-2 pb-4 px-2 text-xs font-black uppercase tracking-wider border-b-2 transition-all whitespace-nowrap ${
+      active ? 'border-red-600 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'
+    }`}
+  >
+    {icon} {label}
+  </button>
+);
+
+const AdminTable = ({ headers, children }: { headers: string[]; children: React.ReactNode }) => (
+  <div className="w-full overflow-x-auto bg-[#0a0a0c] border border-gray-800 rounded-2xl shadow-2xl">
+    <table className="w-full text-left border-collapse">
+      <thead>
+        <tr className="border-b border-gray-800 bg-black/40 text-gray-500 text-[10px] font-black uppercase tracking-wider">
+          {headers.map((h, idx) => (
+            <th key={idx} className="p-5">{h}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>{children}</tbody>
+    </table>
+  </div>
+);
+
+const LoadingRow = ({ colSpan }: { colSpan: number }) => (
+  <tr>
+    <td colSpan={colSpan} className="p-10 text-center text-gray-500 text-xs font-bold uppercase tracking-widest">
+      Mapping Data Channels...
+    </td>
+  </tr>
+);
+
+const ActionButton = ({ color, icon, onClick }: { color: string; icon: React.ReactNode; onClick: () => void }) => (
+  <button onClick={onClick} className={`p-2 bg-gray-950 hover:bg-gray-900 border border-gray-800 rounded-lg transition-transform active:scale-95 ${color}`}>
+    {icon}
+  </button>
+);
 
 export function AdminPanel() {
   const nav = useNavigate();
@@ -45,17 +81,16 @@ export function AdminPanel() {
   const [status, setStatus] = React.useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [loading, setLoading] = React.useState(false);
 
-  // Data States
   const [users, setUsers] = React.useState<any[]>([]);
   const [results, setResults] = React.useState<any[]>([]);
   const [disputes, setDisputes] = React.useState<any[]>([]);
-  const [tournaments, setTournaments] = React.useState<any[]>([]); // New State
+  const [tournaments, setTournaments] = React.useState<any[]>([]);
   const [evidenceUrls, setEvidenceUrls] = React.useState<Record<string, string>>({});
 
   const [modal, setModal] = React.useState<{
-    isOpen: boolean,
-    message: string,
-    onConfirm: () => Promise<void>
+    isOpen: boolean;
+    message: string;
+    onConfirm: () => Promise<void>;
   } | null>(null);
 
   React.useEffect(() => {
@@ -73,9 +108,7 @@ export function AdminPanel() {
         const matchData = await getAllMatchResults();
         setResults(matchData);
         const urls: Record<string, string> = {};
-        const paths = matchData
-          .map((res: any) => res.screenshot_url)
-          .filter(Boolean);
+        const paths = matchData.map((res: any) => res.screenshot_url).filter(Boolean);
         const signedMap = await getSignedUrls(paths);
         for (const res of matchData) {
           if (res.screenshot_url) {
@@ -87,7 +120,6 @@ export function AdminPanel() {
         const disputeData = await getAllDisputes();
         setDisputes(disputeData);
       } else if (activeTab === 'tournaments') {
-        // Fetch current tournaments for management
         const { data } = await supabase
           .from('tournaments')
           .select('*, games(name)')
@@ -138,7 +170,6 @@ export function AdminPanel() {
               <p className="text-gray-500 text-[10px] font-bold uppercase tracking-[0.2em]">Overseeing CampusArena Operations</p>
             </div>
 
-            {/* Quick Actions */}
             <div className="flex gap-3">
               <Button
                 onClick={() => nav('/games')}
@@ -163,6 +194,12 @@ export function AdminPanel() {
             <TabButton active={activeTab === 'disputes'} onClick={() => setActiveTab('disputes')} icon={<Gavel size={14} />} label="Disputes" />
           </nav>
         </header>
+
+        {status && (
+          <div className={`mb-6 p-4 rounded-xl text-xs font-bold uppercase tracking-wider ${status.type === 'success' ? 'bg-green-950/40 text-green-400 border border-green-900' : 'bg-red-950/40 text-red-400 border border-red-900'}`}>
+            {status.text}
+          </div>
+        )}
 
         {/* --- USERS TAB --- */}
         {activeTab === 'users' && (
@@ -222,47 +259,82 @@ export function AdminPanel() {
           </AdminTable>
         )}
 
-        {/* --- MATCHES TAB --- */}
+        {/* --- MATCHES TAB (COMBAT LOGS) --- */}
         {activeTab === 'matches' && (
-          <AdminTable headers={['Match Hash', 'Intel Preview', 'Oversight']}>
-            {loading ? <LoadingRow colSpan={3} /> : results.map(r => (
-              <tr key={r.id} className="hover:bg-white/[0.01] border-b border-white/5">
-                <td className="p-5 font-mono text-[10px] text-gray-600">{r.match_id}</td>
-                <td className="p-5">
-                  {evidenceUrls[r.id] ? (
-                    <a href={evidenceUrls[r.id]} target="_blank" className="text-blue-500 text-[10px] font-black uppercase flex items-center gap-2">
-                      <Eye size={14} /> View Evidence
-                    </a>
-                  ) : <span className="text-gray-700 text-[10px] font-black uppercase italic">No File</span>}
-                </td>
-                <td className="p-5 text-right">
-                  <ActionButton color="text-red-600" icon={<XCircle size={16} />} onClick={() => setModal({ isOpen: true, message: "Invalidate result?", onConfirm: async () => { await removeMatchResult(r.id); fetchData(); } })} />
+          <AdminTable headers={['Match Hash', 'Intel Preview', 'Scores Reported', 'Oversight Actions']}>
+            {loading ? (
+              <LoadingRow colSpan={4} />
+            ) : results.length === 0 ? (
+              <tr>
+                <td colSpan={4} className="p-10 text-center text-xs font-bold uppercase tracking-widest text-gray-500">
+                  No match reports logged in historical buffer.
                 </td>
               </tr>
-            ))}
+            ) : (
+              results.map((r) => (
+                <tr key={r.id} className="hover:bg-white/[0.01] border-b border-white/5 transition-colors">
+                  <td className="p-5 font-mono text-[10px] text-gray-400">
+                    {r.match_id}
+                  </td>
+                  <td className="p-5">
+                    {evidenceUrls[r.id] ? (
+                      <a 
+                        href={evidenceUrls[r.id]} 
+                        target="_blank" 
+                        rel="noreferrer" 
+                        className="text-blue-500 text-[10px] font-black uppercase inline-flex items-center gap-2 hover:underline"
+                      >
+                        <Eye size={14} /> View Evidence
+                      </a>
+                    ) : (
+                      <span className="text-gray-600 text-[10px] uppercase font-bold">No File Proof</span>
+                    )}
+                  </td>
+                  <td className="p-5">
+                    <div className="text-xs font-mono font-black text-gray-200">
+                      P1: <span className="text-green-400">{r.score_player1}</span> | P2: <span className="text-cyan-400">{r.score_player2}</span>
+                    </div>
+                    <span className="text-[9px] uppercase tracking-wider font-mono text-amber-500 block mt-1">Status: {r.status}</span>
+                  </td>
+                  <td className="p-5">
+                    <div className="flex gap-2 justify-end">
+                      <Button 
+                        onClick={async () => {
+                          await supabase.from('match_results').update({ status: 'confirmed' }).eq('id', r.id);
+                          fetchData();
+                        }} 
+                        className="bg-green-600 hover:bg-green-500 text-white px-3 py-1 text-[10px] font-black uppercase rounded animate-in fade-in-50"
+                      >
+                        Confirm
+                      </Button>
+                      <Button 
+                        onClick={async () => {
+                          await supabase.from('match_results').update({ status: 'disputed' }).eq('id', r.id);
+                          fetchData();
+                        }}
+                        className="bg-red-600 hover:bg-red-500 text-white px-3 py-1 text-[10px] font-black uppercase rounded"
+                      >
+                        Dispute
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
           </AdminTable>
         )}
 
         {/* --- DISPUTES TAB --- */}
         {activeTab === 'disputes' && (
-          <AdminTable headers={['Reporter', 'Category', 'Status', 'Oversight']}>
-            {loading ? <LoadingRow colSpan={4} /> : disputes.map(d => (
+          <AdminTable headers={['Match ID', 'Reported Status', 'Actions']}>
+            {loading ? <LoadingRow colSpan={3} /> : disputes.map(d => (
               <tr key={d.id} className="hover:bg-white/[0.01] border-b border-white/5">
-                <td className="p-5 font-bold uppercase italic text-sm">{d.reporter?.username}</td>
-                <td className="p-5">
-                  <span className="text-[10px] font-black uppercase px-2 py-1 bg-white/5 rounded border border-white/10 text-gray-400">
-                    {d.category}
-                  </span>
-                </td>
-                <td className="p-5">
-                  <span className={`text-[10px] font-black uppercase flex items-center gap-2 ${d.status === 'pending' ? 'text-yellow-500' : d.status === 'resolved' ? 'text-green-500' : 'text-blue-500'
-                    }`}>
-                    <Clock size={12} /> {d.status}
-                  </span>
-                </td>
-                <td className="p-5 text-right flex justify-end gap-3">
-                  <ActionButton color="text-blue-500" icon={<ExternalLink size={16} />} onClick={() => {/* Navigate to details */ }} />
-                  <ActionButton color="text-green-500" icon={<CheckCircle size={16} />} onClick={async () => { await updateDisputeStatus(d.id, 'resolved'); fetchData(); }} />
+                <td className="p-5 font-mono text-[10px] text-gray-500">{d.match_id}</td>
+                <td className="p-5 text-xs uppercase font-bold text-red-400">{d.status}</td>
+                <td className="p-5 text-right">
+                  <div className="flex justify-end gap-2">
+                    <Button onClick={async () => { await updateDisputeStatus(d.id, 'resolved'); fetchData(); }} className="bg-blue-600 text-white px-3 py-1 text-[10px] font-black uppercase rounded">Resolve</Button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -270,64 +342,18 @@ export function AdminPanel() {
         )}
       </div>
 
-      {/* --- CONFIRMATION MODAL --- */}
+      {/* Action Modal Confirmation Prompt */}
       {modal?.isOpen && (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-          <Card className="bg-[#0a0a0c] border-red-600/50 p-8 rounded-[2.5rem] max-w-sm w-full">
-            <div className="flex justify-center mb-6 text-red-600"><AlertTriangle size={32} /></div>
-            <p className="text-center font-bold uppercase italic text-sm text-gray-200 mb-8">{modal.message}</p>
-            <div className="grid grid-cols-2 gap-4">
-              <Button variant="outline" className="border-gray-800 text-gray-500 font-black uppercase text-[10px]" onClick={() => setModal(null)}>Abort</Button>
-              <Button className="bg-red-600 text-white font-black uppercase text-[10px]" onClick={async () => { await modal.onConfirm(); setModal(null); }}>Confirm</Button>
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <Card className="bg-gray-900 border-gray-800 p-6 max-w-sm w-full text-center space-y-4">
+            <p className="text-sm font-black uppercase tracking-wide text-white">{modal.message}</p>
+            <div className="flex gap-4 justify-center">
+              <Button onClick={() => setModal(null)} variant="outline" className="border-gray-700 text-gray-400 font-bold uppercase text-[10px]">Cancel</Button>
+              <Button onClick={async () => { await modal.onConfirm(); setModal(null); }} className="bg-red-600 text-white font-black uppercase text-[10px]">Confirm execution</Button>
             </div>
           </Card>
         </div>
       )}
     </div>
-  );
-}
-
-// Sub-components for cleaner code
-function TabButton({ active, onClick, icon, label }: any) {
-  return (
-    <button onClick={onClick} className={`flex items-center gap-2 px-6 py-4 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 ${active ? 'text-red-500 border-red-500' : 'text-gray-500 border-transparent hover:text-gray-300'
-      }`}>
-      {icon} {label}
-    </button>
-  );
-}
-
-function AdminTable({ headers, children }: any) {
-  return (
-    <div className="bg-[#0a0a0c] border border-gray-800 rounded-3xl overflow-hidden shadow-2xl">
-      <div className="overflow-x-auto">
-        <table className="w-full text-left">
-          <thead>
-            <tr className="bg-white/[0.02] border-b border-white/5 text-[10px] font-black uppercase tracking-widest text-gray-500">
-              {headers.map((h: string) => <th key={h} className="p-5">{h}</th>)}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-white/5">{children}</tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-function LoadingRow({ colSpan }: { colSpan: number }) {
-  return (
-    <tr>
-      <td colSpan={colSpan} className="p-20 text-center">
-        <Loader2 className="animate-spin text-red-600 mx-auto" />
-      </td>
-    </tr>
-  );
-}
-
-function ActionButton({ color, icon, onClick }: any) {
-  return (
-    <button onClick={onClick} className={`p-2 ${color} hover:bg-white/5 rounded-lg transition-all`}>
-      {icon}
-    </button>
   );
 }
