@@ -19,6 +19,7 @@ import {
   Zap,
   Radio,
   Lock,
+  ImageIcon,
 } from 'lucide-react';
 import soccerImg from '../images/Soccer.png';
 
@@ -50,6 +51,21 @@ interface RecentMessage {
   } | null;
 }
 
+interface ConfirmedEvidence {
+  id: string;
+  match_id: string;
+  reported_by: string;
+  score_player1: number;
+  score_player2: number;
+  screenshot_url: string | null;
+  created_at: string;
+  signedUrl?: string;
+  reporter?: {
+    username: string | null;
+    avatar_url: string | null;
+  } | null;
+}
+
 async function fetchUpcoming() {
   const { data, error } = await supabase
     .from('v_user_upcoming_matches')
@@ -68,6 +84,30 @@ async function fetchGames() {
 
   if (error) throw error;
   return data as GameOption[];
+}
+
+function getEvidencePath(value: string | null) {
+  if (!value) return '';
+
+  if (!value.startsWith('http')) return value;
+
+  try {
+    const url = new URL(value);
+    const signedMarker = '/storage/v1/object/sign/evidence/';
+    const publicMarker = '/storage/v1/object/public/evidence/';
+
+    if (url.pathname.includes(signedMarker)) {
+      return decodeURIComponent(url.pathname.split(signedMarker)[1]);
+    }
+
+    if (url.pathname.includes(publicMarker)) {
+      return decodeURIComponent(url.pathname.split(publicMarker)[1]);
+    }
+
+    return value;
+  } catch {
+    return value;
+  }
 }
 
 async function getOrCreateMatchChat(matchId: string) {
@@ -255,6 +295,61 @@ export function Dashboard() {
     queryFn: fetchGames,
   });
 
+  const { data: confirmedEvidence = [] } = useQuery({
+    queryKey: ['confirmed-evidence-feed'],
+    queryFn: async () => {
+      const { data: rows, error } = await supabase
+        .from('match_results')
+        .select(`
+          id,
+          match_id,
+          reported_by,
+          score_player1,
+          score_player2,
+          screenshot_url,
+          created_at,
+          reporter:profiles!match_results_reported_by_fkey (
+            username,
+            avatar_url
+          )
+        `)
+        .eq('status', 'confirmed')
+        .not('screenshot_url', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(6);
+
+      if (error) throw error;
+
+      const signedRows = await Promise.all(
+        ((rows || []) as any[]).map(async (row) => {
+          let signedUrl = '';
+
+          const evidencePath = getEvidencePath(row.screenshot_url);
+
+          if (evidencePath && !evidencePath.startsWith('http')) {
+            const { data: signedData } = await supabase.storage
+              .from('evidence')
+              .createSignedUrl(evidencePath, 60 * 60);
+
+            signedUrl = signedData?.signedUrl || '';
+          } else {
+            signedUrl = evidencePath;
+          }
+
+          return {
+            ...row,
+            signedUrl,
+            reporter: Array.isArray(row.reporter)
+              ? row.reporter[0] ?? null
+              : row.reporter ?? null,
+          };
+        })
+      );
+
+      return signedRows as ConfirmedEvidence[];
+    },
+  });
+
   const { data: recentMessages = [] } = useQuery({
     queryKey: ['recent-match-messages', uid],
     enabled: !!uid,
@@ -370,6 +465,18 @@ export function Dashboard() {
           fetchIncomingDirectChallenges(uid);
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'match_results',
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['confirmed-evidence-feed'] });
+          queryClient.invalidateQueries({ queryKey: ['upcoming'] });
+        }
+      )
       .subscribe();
 
     return () => {
@@ -430,6 +537,7 @@ export function Dashboard() {
     ...incomingChallenges.map((c) => c.player1_id),
     ...incomingChallenges.map((c) => c.player2_id),
     ...recentMessages.map((m) => m.sender_id),
+    ...confirmedEvidence.map((e) => e.reported_by),
   ].filter(Boolean) as string[];
 
   const { nameMap, avatarMap } = useProfilesMap(ids);
@@ -727,6 +835,72 @@ export function Dashboard() {
             )}
           </div>
 
+          {confirmedEvidence.length > 0 && (
+            <section className="mt-10 rounded-3xl border border-green-500/20 bg-gray-950/80 p-4 sm:p-6 shadow-xl">
+              <div className="mb-5">
+                <h2 className="text-white font-black uppercase tracking-widest text-sm flex items-center gap-2">
+                  <ImageIcon size={16} className="text-green-300" />
+                  Verified Match Evidence
+                </h2>
+                <p className="text-gray-300 text-xs mt-1">
+                  Confirmed proof uploads from recent arena battles.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {confirmedEvidence.map((ev) => (
+                  <div
+                    key={ev.id}
+                    className="rounded-2xl overflow-hidden border border-white/10 bg-black/70 shadow-lg"
+                  >
+                    {ev.signedUrl ? (
+                      <img
+                        src={ev.signedUrl}
+                        alt="Match evidence"
+                        className="w-full h-48 object-cover bg-gray-900"
+                      />
+                    ) : (
+                      <div className="w-full h-48 bg-gray-900 flex items-center justify-center text-gray-400 text-xs font-bold uppercase">
+                        Evidence unavailable
+                      </div>
+                    )}
+
+                    <div className="p-4">
+                      <div className="flex items-center gap-3">
+                        <Avatar
+                          src={ev.reporter?.avatar_url || avatar(ev.reported_by) || ''}
+                          alt={ev.reporter?.username || name(ev.reported_by)}
+                          className="w-9 h-9 border border-green-500/30"
+                        />
+
+                        <div className="min-w-0">
+                          <p className="text-white font-black text-sm truncate">
+                            {ev.reporter?.username || name(ev.reported_by)} submitted proof
+                          </p>
+
+                          <p className="text-gray-400 text-[10px] font-mono">
+                            {new Date(ev.created_at).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+
+                      <p className="text-green-300 font-mono font-black text-xs mt-3">
+                        P1: {ev.score_player1} | P2: {ev.score_player2}
+                      </p>
+
+                      <Link
+                        to={`/matches/${ev.match_id}`}
+                        className="inline-block mt-3 text-blue-300 text-xs font-black uppercase hover:underline"
+                      >
+                        View Match
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
           <div className="mt-10 grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-1 min-w-0 rounded-3xl border border-blue-500/20 bg-gray-950/70 p-4 shadow-xl">
               <div className="mb-4">
@@ -751,7 +925,8 @@ export function Dashboard() {
                   Verified friendly records and recent results.
                 </p>
               </div>
-              <div className="[&_p]:!text-gray-200 [&_span]:!text-gray-200 [&_td]:!text-gray-200 [&_th]:!text-white [&_h1]:!text-white [&_h2]:!text-white [&_h3]:!text-white">
+
+              <div className="[&_*]:!text-gray-900 [&_h1]:!text-gray-950 [&_h2]:!text-gray-950 [&_h3]:!text-gray-950 [&_p]:!text-gray-700 [&_span]:!text-gray-700 [&_td]:!text-gray-800 [&_th]:!text-gray-950">
                 <FriendlyHistory uid={uid} />
               </div>
             </div>
