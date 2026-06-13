@@ -148,53 +148,32 @@ export function AdminPanel() {
   }
 
   async function confirmMatchResult(result: any) {
-    setUpdatingId(result.id);
-    setStatus(null);
+  setUpdatingId(result.id);
+  setStatus(null);
 
-    try {
-      const { data: updatedResults, error: resultError } = await supabase
-        .from('match_results')
-        .update({ status: 'confirmed' })
-        .eq('id', result.id)
-        .select();
+  try {
+    const { error } = await supabase.rpc('admin_confirm_match_result', {
+      p_result_id: result.id,
+    });
 
-      if (resultError) throw resultError;
+    if (error) throw error;
 
-      if (!updatedResults || updatedResults.length === 0) {
-        throw new Error(
-          'No match result was updated. Check your RLS update policy or confirm this result still exists.'
-        );
-      }
+    setStatus({
+      type: 'success',
+      text: 'Match result confirmed successfully.',
+    });
 
-      if (result.match_id) {
-        const { error: matchError } = await supabase
-          .from('matches')
-          .update({
-            status: 'completed',
-            score_player1: result.score_player1,
-            score_player2: result.score_player2,
-          })
-          .eq('id', result.match_id);
-
-        if (matchError) throw matchError;
-      }
-
-      setStatus({
-        type: 'success',
-        text: 'Match result confirmed successfully. Dashboard and rankings should update now.',
-      });
-
-      await fetchData();
-    } catch (e: any) {
-      console.error('Confirm result failed:', e);
-      setStatus({
-        type: 'error',
-        text: e.message || 'Failed to confirm result.',
-      });
-    } finally {
-      setUpdatingId(null);
-    }
+    await fetchData();
+  } catch (e: any) {
+    console.error('Confirm result failed:', e);
+    setStatus({
+      type: 'error',
+      text: e.message || 'Failed to confirm result.',
+    });
+  } finally {
+    setUpdatingId(null);
   }
+}
 
   async function disputeMatchResult(result: any) {
     setUpdatingId(result.id);
