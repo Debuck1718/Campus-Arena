@@ -8,8 +8,28 @@ export interface ChatMessage {
   message: string;
   created_at: string;
   sender?: {
-    username: string;
-    avatar_url: string;
+    username: string | null;
+    avatar_url: string | null;
+  } | null;
+}
+
+type RawChatMessage = Omit<ChatMessage, 'sender'> & {
+  sender?:
+    | {
+        username: string | null;
+        avatar_url: string | null;
+      }
+    | {
+        username: string | null;
+        avatar_url: string | null;
+      }[]
+    | null;
+};
+
+function normalizeMessage(row: RawChatMessage): ChatMessage {
+  return {
+    ...row,
+    sender: Array.isArray(row.sender) ? row.sender[0] ?? null : row.sender ?? null,
   };
 }
 
@@ -17,43 +37,44 @@ export function useChatMessages(chatId: string | undefined) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
 
-  // 1. Fetch initial historical messages for this chat room
+  async function fetchMessages(activeChatId: string) {
+    setLoading(true);
+
+    const { data, error } = await supabase
+      .from('chat_messages')
+      .select(`
+        id,
+        chat_id,
+        sender_id,
+        message,
+        created_at,
+        sender:profiles!chat_messages_sender_id_fkey (
+          username,
+          avatar_url
+        )
+      `)
+      .eq('chat_id', activeChatId)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching chat history:', error.message);
+      setMessages([]);
+    } else {
+      const normalized = ((data || []) as RawChatMessage[]).map(normalizeMessage);
+      setMessages(normalized);
+    }
+
+    setLoading(false);
+  }
+
   useEffect(() => {
     if (!chatId) {
       setMessages([]);
       return;
     }
 
-    async function fetchMessages() {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('chat_messages')
-        .select(`
-          id,
-          chat_id,
-          sender_id,
-          message,
-          created_at,
-          sender:profiles (
-            username,
-            avatar_url
-          )
-        `)
-        .eq('chat_id', chatId)
-        .order('created_at', { ascending: true });
+    fetchMessages(chatId);
 
-      if (error) {
-        console.error('Error fetching chat history:', error.message);
-      } else {
-        // Map out single items safely matching our interface structure
-        setMessages((data as any[]) || []);
-      }
-      setLoading(false);
-    }
-
-    fetchMessages();
-
-    // 2. Listen to real-time additions to this chat room
     const chatChannel = supabase
       .channel(`chat_room:${chatId}`)
       .on(
@@ -67,41 +88,44 @@ export function useChatMessages(chatId: string | undefined) {
         async (payload) => {
           const newMessage = payload.new as ChatMessage;
 
-          // Fetch sender profile details to attach immediately to the message bubble
           const { data: profileData } = await supabase
             .from('profiles')
             .select('username, avatar_url')
             .eq('id', newMessage.sender_id)
             .single();
 
-          if (profileData) {
-            newMessage.sender = {
-              username: profileData.username,
-              avatar_url: profileData.avatar_url,
-            };
-          }
+          newMessage.sender = profileData || null;
 
-          // Append newly received message to state
-          setMessages((prev) => [...prev, newMessage]);
+          setMessages((prev) => {
+            if (prev.some((msg) => msg.id === newMessage.id)) return prev;
+            return [...prev, newMessage];
+          });
         }
       )
       .subscribe();
 
-    // Clean up channel listener when moving out of the chat context
     return () => {
       supabase.removeChannel(chatChannel);
     };
   }, [chatId]);
 
-  // 3. Send a message to the database
   async function sendMessage(idOfChat: string, textContent: string) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    const cleanText = textContent.trim();
+    if (!idOfChat || !cleanText) return;
+
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      throw new Error('User not authenticated');
+    }
 
     const { error } = await supabase.from('chat_messages').insert({
       chat_id: idOfChat,
       sender_id: user.id,
-      message: textContent,
+      message: cleanText,
     });
 
     if (error) {

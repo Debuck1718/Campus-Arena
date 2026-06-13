@@ -199,6 +199,7 @@ export function CreateTournament() {
                 <option className="bg-black">Xbox</option>
                 <option className="bg-black">PC</option>
                 <option className="bg-black">Mobile</option>
+                <option className="bg-black">PES / In-Person</option>
               </Select>
             </div>
 
