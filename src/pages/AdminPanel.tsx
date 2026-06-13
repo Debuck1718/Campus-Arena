@@ -36,9 +36,8 @@ type AdminTab = 'users' | 'matches' | 'disputes' | 'tournaments';
 const TabButton = ({ active, onClick, icon, label }: any) => (
   <button
     onClick={onClick}
-    className={`flex items-center gap-2 pb-4 px-2 text-xs font-black uppercase tracking-wider border-b-2 transition-all whitespace-nowrap ${
-      active ? 'border-red-500 text-white' : 'border-transparent text-gray-400 hover:text-white'
-    }`}
+    className={`flex items-center gap-2 pb-4 px-2 text-xs font-black uppercase tracking-wider border-b-2 transition-all whitespace-nowrap ${active ? 'border-red-500 text-white' : 'border-transparent text-gray-400 hover:text-white'
+      }`}
   >
     {icon} {label}
   </button>
@@ -153,15 +152,19 @@ export function AdminPanel() {
     setStatus(null);
 
     try {
-      const { error: resultError } = await supabase
+      const { data: updatedResults, error: resultError } = await supabase
         .from('match_results')
         .update({ status: 'confirmed' })
         .eq('id', result.id)
-        .eq('status', 'pending')
-        .select()
-        .single();
+        .select();
 
       if (resultError) throw resultError;
+
+      if (!updatedResults || updatedResults.length === 0) {
+        throw new Error(
+          'No match result was updated. Check your RLS update policy or confirm this result still exists.'
+        );
+      }
 
       if (result.match_id) {
         const { error: matchError } = await supabase
@@ -176,11 +179,18 @@ export function AdminPanel() {
         if (matchError) throw matchError;
       }
 
-      setStatus({ type: 'success', text: 'Match result confirmed. Dashboard and rankings should update now.' });
+      setStatus({
+        type: 'success',
+        text: 'Match result confirmed successfully. Dashboard and rankings should update now.',
+      });
+
       await fetchData();
     } catch (e: any) {
       console.error('Confirm result failed:', e);
-      setStatus({ type: 'error', text: e.message || 'Failed to confirm result.' });
+      setStatus({
+        type: 'error',
+        text: e.message || 'Failed to confirm result.',
+      });
     } finally {
       setUpdatingId(null);
     }
@@ -191,20 +201,28 @@ export function AdminPanel() {
     setStatus(null);
 
     try {
-      const { error } = await supabase
+      const { data: updatedResults, error } = await supabase
         .from('match_results')
         .update({ status: 'disputed' })
         .eq('id', result.id)
-        .select()
-        .single();
+        .select();
 
       if (error) throw error;
+
+      if (!updatedResults || updatedResults.length === 0) {
+        throw new Error(
+          'No match result was updated. Check your RLS update policy or confirm this result still exists.'
+        );
+      }
 
       setStatus({ type: 'success', text: 'Match result marked as disputed.' });
       await fetchData();
     } catch (e: any) {
       console.error('Dispute result failed:', e);
-      setStatus({ type: 'error', text: e.message || 'Failed to dispute result.' });
+      setStatus({
+        type: 'error',
+        text: e.message || 'Failed to dispute result.',
+      });
     } finally {
       setUpdatingId(null);
     }
@@ -282,11 +300,10 @@ export function AdminPanel() {
         </header>
 
         {status && (
-          <div className={`mb-6 p-4 rounded-xl text-xs font-bold uppercase tracking-wider ${
-            status.type === 'success'
+          <div className={`mb-6 p-4 rounded-xl text-xs font-bold uppercase tracking-wider ${status.type === 'success'
               ? 'bg-green-950/50 text-green-300 border border-green-700'
               : 'bg-red-950/50 text-red-300 border border-red-700'
-          }`}>
+            }`}>
             {status.text}
           </div>
         )}
@@ -388,13 +405,12 @@ export function AdminPanel() {
                       P1: <span className="text-green-300">{r.score_player1}</span> | P2:{' '}
                       <span className="text-cyan-300">{r.score_player2}</span>
                     </div>
-                    <span className={`text-[9px] uppercase tracking-wider font-mono block mt-1 ${
-                      r.status === 'confirmed'
+                    <span className={`text-[9px] uppercase tracking-wider font-mono block mt-1 ${r.status === 'confirmed'
                         ? 'text-green-300'
                         : r.status === 'disputed'
-                        ? 'text-red-300'
-                        : 'text-amber-300'
-                    }`}>
+                          ? 'text-red-300'
+                          : 'text-amber-300'
+                      }`}>
                       Status: {r.status}
                     </span>
                   </td>
