@@ -34,7 +34,7 @@ const qc = new QueryClient();
 function Home() {
   return (
     /* flex-col-reverse ensures image is on TOP for mobile, md:flex-row puts it on the RIGHT for desktop */
-    <div className="flex flex-col-reverse md:flex-row items-center justify-between min-h-[80vh] gap-10 px-4 md:px-10">
+    <div className="flex flex-col-reverse md:flex-row items-center justify-between min-h-[80vh] gap-8 px-4 md:px-10">
 
       {/* Left side: Text Content */}
       <section className="flex-1 max-w-2xl animate-in fade-in slide-in-from-bottom-5 duration-700">
