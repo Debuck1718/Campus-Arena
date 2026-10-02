@@ -4,6 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../supabaseClient';
 import { Avatar } from '../components/ui';
 import { getRankTitle, getProgressTitle, getWinRate } from '../lib/ranking';
+import { SEO } from '../components/SEO';
+import { breadcrumbJsonLd } from '../lib/seo';
 import {
   Flame,
   Award,
@@ -86,6 +88,15 @@ export function Leaderboard() {
 
   return (
     <div className="min-h-screen bg-[#03040a] text-gray-100 pb-24 relative overflow-hidden">
+      <SEO
+        title="Campus Leaderboard — Top Players &amp; Rankings | CampusArena"
+        description="See the top-ranked CampusArena players by points, wins and ELO. Track win rates across every campus tournament and match."
+        path="/leaderboard"
+        jsonLd={breadcrumbJsonLd([
+          { name: 'Home', path: '/' },
+          { name: 'Leaderboard', path: '/leaderboard' },
+        ])}
+      />
       <div className="fixed inset-0 pointer-events-none bg-[radial-gradient(circle_at_top_left,rgba(37,99,235,0.2),transparent_32%),radial-gradient(circle_at_top_right,rgba(147,51,234,0.14),transparent_30%),linear-gradient(to_bottom,#03040a,#050505)]" />
 
       <div className="container mx-auto px-4 pt-14 relative z-10">

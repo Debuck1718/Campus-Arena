@@ -117,6 +117,21 @@ export function Privacy(): JSX.Element {
             </div>
           </footer>
 
+          <p className="mt-6 text-[10px] font-bold uppercase tracking-[0.2em] text-gray-600 text-center">
+            © {new Date().getFullYear()} Evantra DeBuckman Ventures • Accra, Ghana
+          </p>
+          <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.2em] text-gray-600 text-center">
+            CampusArena is a product of{' '}
+            <a
+              href="https://evantradebuckman.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-green-500 hover:text-green-400 transition-colors"
+            >
+              Evantra DeBuckman Ventures
+            </a>
+          </p>
+
         </div>
       </div>
     </div>

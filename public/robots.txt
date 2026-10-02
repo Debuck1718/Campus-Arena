@@ -1,4 +1,17 @@
+# CampusArena — https://campus-arena.vercel.app
+# (Replace the host below if the production domain changes.)
+
 User-agent: *
 Allow: /
 
-Sitemap: https://your-domain.example/sitemap.xml
+# Authenticated surfaces: crawlers get redirected to /login and these pages
+# carry a noindex meta tag from the SEO component. Blocking them here stops
+# Google wasting crawl budget on redirects.
+Disallow: /dashboard
+Disallow: /matches/
+Disallow: /profile
+Disallow: /support
+Disallow: /admin
+Disallow: /games
+
+Sitemap: https://campus-arena.vercel.app/sitemap.xml

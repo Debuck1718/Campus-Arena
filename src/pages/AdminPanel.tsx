@@ -29,6 +29,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { Button, Card, Input } from '../components/ui';
+import { SEO } from '../components/SEO';
 
 type AdminTab = 'users' | 'matches' | 'disputes' | 'tournaments';
 
@@ -277,6 +278,7 @@ export function AdminPanel() {
 
   return (
     <div className="min-h-screen bg-[#030305] text-gray-100 pb-20 relative overflow-hidden">
+      <SEO title="Admin Panel | CampusArena" noindex />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(220,38,38,0.16),transparent_35%)] pointer-events-none" />
 
       <div className="container max-w-6xl mx-auto px-4 pt-10 sm:pt-12 relative z-10">

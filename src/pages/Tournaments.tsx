@@ -16,6 +16,8 @@ import {
   Sparkles,
 } from 'lucide-react';
 import nbaImg from '../images/NBA.png';
+import { SEO } from '../components/SEO';
+import { breadcrumbJsonLd } from '../lib/seo';
 
 interface TournamentRow {
   id: string;
@@ -192,6 +194,15 @@ export function Tournaments() {
 
   return (
     <div className="min-h-screen bg-[#03040a] text-gray-100 pb-24 relative overflow-x-hidden">
+      <SEO
+        title="Campus Tournaments — Join &amp; Compete | CampusArena"
+        description="Browse live and upcoming campus tournaments. Join a bracket, compete in round-robin or single elimination, and win your campus title."
+        path="/tournaments"
+        jsonLd={breadcrumbJsonLd([
+          { name: 'Home', path: '/' },
+          { name: 'Tournaments', path: '/tournaments' },
+        ])}
+      />
       <div className="fixed inset-0 pointer-events-none bg-[radial-gradient(circle_at_top_left,rgba(37,99,235,0.18),transparent_32%),radial-gradient(circle_at_top_right,rgba(147,51,234,0.12),transparent_30%),linear-gradient(to_bottom,#03040a,#050505)]" />
 
       <img

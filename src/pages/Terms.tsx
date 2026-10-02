@@ -134,7 +134,18 @@ export function Terms(): JSX.Element {
 
             <footer className="mt-20 pt-10 border-t border-gray-900">
               <p className="text-[10px] font-bold uppercase tracking-widest text-gray-600 text-center">
-                © {new Date().getFullYear()} CampusArena Gaming Technologies • Accra, Ghana
+                © {new Date().getFullYear()} Evantra DeBuckman Ventures • Accra, Ghana
+              </p>
+              <p className="mt-3 text-[10px] font-bold uppercase tracking-widest text-gray-600 text-center">
+                CampusArena is a product of{' '}
+                <a
+                  href="https://evantradebuckman.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-cyan-500 hover:text-cyan-400 transition-colors"
+                >
+                  Evantra DeBuckman Ventures
+                </a>
               </p>
             </footer>
           </main>

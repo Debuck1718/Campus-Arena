@@ -17,6 +17,8 @@ import {
 import { Chat } from '../components/Chat';
 import { useTournamentChatId } from '../hooks/useTournamentChatId';
 import { Avatar } from '../components/ui';
+import { SEO } from '../components/SEO';
+import { SITE_NAME, breadcrumbJsonLd } from '../lib/seo';
 
 async function fetchTournament(id: string) {
   const { data, error } = await supabase.from('tournaments').select('*').eq('id', id).single();
@@ -125,6 +127,33 @@ export function TournamentDetail() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-gray-100 pb-20">
+      <SEO
+        title={`${t.name} — ${t.format ?? 'Tournament'} Bracket | ${SITE_NAME}`}
+        description={`Follow ${t.name} on CampusArena: live bracket, participants, results and champion for this ${t.platform ?? 'campus'} ${t.format ?? 'tournament'}.`}
+        path={`/tournaments/${id}`}
+        jsonLd={[
+          breadcrumbJsonLd([
+            { name: 'Home', path: '/' },
+            { name: 'Tournaments', path: '/tournaments' },
+            { name: t.name, path: `/tournaments/${id}` },
+          ]),
+          {
+            '@context': 'https://schema.org',
+            '@type': 'SportsEvent',
+            name: t.name,
+            url: `/tournaments/${id}`,
+            eventStatus: t.status === 'completed'
+              ? 'https://schema.org/EventScheduled'
+              : undefined,
+            competitor: players.map((p: { profile_id: string }) => ({
+              '@type': 'Person',
+              name: name(p.profile_id),
+              url: `/profile/${p.profile_id}`,
+            })),
+            ...(championId ? { winner: { '@type': 'Person', name: name(championId) } } : {}),
+          },
+        ]}
+      />
       {/* Header Section */}
       <div className="bg-gradient-to-b from-blue-900/20 to-transparent border-b border-white/5 pt-12 pb-10">
         <div className="container mx-auto px-4">

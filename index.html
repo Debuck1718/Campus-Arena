@@ -6,18 +6,83 @@
     <meta name="theme-color" content="#2563eb" />
     
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2240%22 fill=%22%232563eb%22/><text x=%2250%25%22 y=%2256%25%22 text-anchor=%22middle%22 font-size=%2254%22 fill=%22white%22 font-family=%22Arial, Helvetica, sans-serif%22>CA</text></svg>" />
-    
+        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+
     <link rel="manifest" href="/manifest.webmanifest" />
-    <meta name="description" content="CampusArena — competitive tournaments for students." />
-    
-    <title>CampusArena</title>
-    
+
+    <!--
+      Static fallback metadata. The SEO component rewrites title, description,
+      canonical and OG tags per route; these values are what crawlers and
+      social scrapers see before (or without) running the bundle.
+    -->
+    <title>CampusArena — Campus Tournaments, Matches &amp; Leaderboards</title>
+    <meta name="description" content="CampusArena is the competitive platform for students: create tournaments, challenge rivals 1v1, chat in match rooms, and climb the campus leaderboard." />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="application-name" content="CampusArena" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="CampusArena" />
+    <meta property="og:title" content="CampusArena — Campus Tournaments, Matches &amp; Leaderboards" />
+    <meta property="og:description" content="CampusArena is the competitive platform for students: create tournaments, challenge rivals 1v1, chat in match rooms, and climb the campus leaderboard." />
+    <meta property="og:image" content="/icons/icon-512.png" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="CampusArena — Campus Tournaments, Matches &amp; Leaderboards" />
+    <meta name="twitter:description" content="CampusArena is the competitive platform for students: create tournaments, challenge rivals 1v1, chat in match rooms, and climb the campus leaderboard." />
+    <meta name="twitter:image" content="/icons/icon-512.png" />
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+
+    <!-- Site-wide structured data: helps Google build the brand knowledge panel. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://evantradebuckman.com/#organization",
+            "name": "Evantra DeBuckman Ventures",
+            "url": "https://evantradebuckman.com",
+            "description": "Evantra DeBuckman Ventures is a software studio building competitive gaming and campus community platforms."
+          },
+          {
+            "@type": "Organization",
+            "@id": "/#organization",
+            "name": "CampusArena",
+            "url": "/",
+            "logo": "/icons/icon-512.png",
+            "description": "The competitive platform for student tournaments and 1v1 matches.",
+            "creator": { "@id": "https://evantradebuckman.com/#organization" },
+            "publisher": { "@id": "https://evantradebuckman.com/#organization" }
+          },
+          {
+            "@type": "WebSite",
+            "@id": "/#website",
+            "name": "CampusArena",
+            "url": "/",
+            "publisher": { "@id": "/#organization" }
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
+
+    <noscript>
+      <h1>CampusArena</h1>
+      <p>
+        CampusArena is the competitive platform for students: create tournaments, challenge
+        rivals 1v1, chat in match rooms, and climb the campus leaderboard. Please enable
+        JavaScript to use the arena.
+      </p>
+      <p>
+        CampusArena is a product of
+        <a href="https://evantradebuckman.com">Evantra DeBuckman Ventures</a>.
+      </p>
+    </noscript>
 
     <script type="module" src="/src/main.tsx"></script>
   </body>

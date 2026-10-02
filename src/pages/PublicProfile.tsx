@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { Card, Avatar, Button } from '../components/ui';
 import { getRankTitle, getProgressTitle, getWinRate } from '../lib/ranking';
+import { SEO } from '../components/SEO';
+import { SITE_NAME, breadcrumbJsonLd } from '../lib/seo';
 import {
   Trophy,
   Swords,
@@ -189,6 +191,31 @@ export function PublicProfile() {
 
   return (
     <div className="min-h-screen bg-[#03040a] text-gray-100 pb-20 relative overflow-hidden">
+      <SEO
+        title={`${profile.username || 'Player'} — CampusArena Profile`}
+        description={`${profile.username || 'This player'}'s CampusArena profile: rank, win rate, matches played and tournament history.`}
+        path={`/profile/${id}`}
+        type="profile"
+        image={profile.avatar_url || undefined}
+        jsonLd={[
+          breadcrumbJsonLd([
+            { name: 'Home', path: '/' },
+            { name: 'Leaderboard', path: '/leaderboard' },
+            { name: profile.username || 'Player', path: `/profile/${id}` },
+          ]),
+          {
+            '@context': 'https://schema.org',
+            '@type': 'ProfilePage',
+            name: `${profile.username || 'Player'} | ${SITE_NAME}`,
+            mainEntity: {
+              '@type': 'Person',
+              name: profile.username || 'Player',
+              url: `/profile/${id}`,
+              ...(profile.avatar_url ? { image: profile.avatar_url } : {}),
+            },
+          },
+        ]}
+      />
       <div className="fixed inset-0 pointer-events-none bg-[radial-gradient(circle_at_top_left,rgba(37,99,235,0.2),transparent_32%),radial-gradient(circle_at_top_right,rgba(147,51,234,0.14),transparent_30%),linear-gradient(to_bottom,#03040a,#050505)]" />
 
       <div className="container max-w-6xl mx-auto px-4 pt-10 sm:pt-12 relative z-10">

@@ -3,6 +3,7 @@ import clsx from 'clsx';
 import { supabase } from '../supabaseClient';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button, Card, Input } from '../components/ui';
+import { SEO } from '../components/SEO';
 
 export function Signup() {
   const nav = useNavigate();
@@ -56,6 +57,11 @@ export function Signup() {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-10 bg-[#03040a] text-slate-100">
+      <SEO
+        title="Sign Up — Join CampusArena"
+        description="Create your free CampusArena player profile. Enter campus tournaments, challenge rivals 1v1 and start climbing the leaderboard."
+        path="/signup"
+      />
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-3xl sm:text-4xl font-black uppercase italic tracking-tighter text-white">

@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient';
 import { isCurrentUserAdmin } from '../lib/admin';
 import { useNavigate } from 'react-router-dom';
 import { Button, Card, Input } from '../components/ui';
+import { SEO } from '../components/SEO';
 import {
   Gamepad2,
   Plus,
@@ -100,6 +101,7 @@ export function GamesManagement() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white pb-20 relative overflow-hidden">
+      <SEO title="Game Management | CampusArena" noindex />
       {/* Background Glow */}
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-600/5 blur-[120px] rounded-full pointer-events-none" />
 

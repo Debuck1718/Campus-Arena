@@ -2,6 +2,7 @@ import React from 'react';
 import { supabase } from '../supabaseClient';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button, Card, Input } from '../components/ui';
+import { SEO } from '../components/SEO';
 
 export function Login() {
   const nav = useNavigate();
@@ -43,6 +44,11 @@ export function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-10 bg-[#03040a] text-slate-100">
+      <SEO
+        title="Login — CampusArena"
+        description="Sign in to your CampusArena account to manage matches, tournaments and your campus ranking."
+        path="/login"
+      />
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-3xl sm:text-4xl font-black uppercase italic tracking-tighter text-white">
