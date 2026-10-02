@@ -2,7 +2,7 @@ import React from 'react';
 import { supabase } from '../supabaseClient';
 import { isCurrentUserAdmin } from '../lib/admin';
 import { useNavigate } from 'react-router-dom';
-import { Button, Card, Input, Select } from '../components/ui';
+import { Button, Card, Input } from '../components/ui';
 import {
   Gamepad2,
   Plus,
@@ -18,8 +18,10 @@ interface Game {
   id: string;
   name: string;
   slug: string;
-  platform: string;
+  platform_support: string[];
 }
+
+const PLATFORMS = ['PlayStation', 'Xbox', 'PC', 'Mobile', 'In-Person'];
 
 export function GamesManagement() {
   const nav = useNavigate();
@@ -29,9 +31,11 @@ export function GamesManagement() {
 
   // Form State
   const [newName, setNewName] = React.useState('');
-  const [newSlug, setNewSlug] = React.useState('');
-  const [newPlatform, setNewPlatform] = React.useState('All');
+  const [newSlug, setNewSlug] = React.useState('');  // Production schema (verified 2026-10-02): games has NO `platform` column.
+  // The supported-platform list lives in `platform_support text[]`.
+  const [newPlatform, setNewPlatform] = React.useState<string[]>(['PC']);
   const [adding, setAdding] = React.useState(false);
+  const [formError, setFormError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     async function init() {
@@ -62,13 +66,15 @@ export function GamesManagement() {
       .insert([{
         name: newName,
         slug: newSlug.toLowerCase().replace(/\s+/g, '-'),
-        platform: newPlatform
+        platform_support: newPlatform,
       }]);
 
-    if (!error) {
+    if (error) {
+      setFormError(error.message);
+    } else {
       setNewName('');
       setNewSlug('');
-      setNewPlatform('All');
+      setNewPlatform(['PC']);
       fetchGames();
     }
     setAdding(false);
@@ -79,6 +85,10 @@ export function GamesManagement() {
     const { error } = await supabase.from('games').delete().eq('id', id);
     if (!error) fetchGames();
   }
+
+  const togglePlatform = (p: string) => {
+    setNewPlatform((prev) => (prev.includes(p) ? prev.filter((i) => i !== p) : [...prev, p]));
+  };
 
   const getPlatformIcon = (plat: string) => {
     if (plat === 'Mobile') return <Smartphone size={10} />;
@@ -147,19 +157,30 @@ export function GamesManagement() {
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-[9px] font-black uppercase text-gray-600 tracking-widest">Primary Platform</label>
-                <Select
-                  value={newPlatform}
-                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setNewPlatform(e.target.value)}
-                  className="bg-black border-gray-800 font-bold"
-                >
-                  <option className="bg-black">All</option>
-                  <option className="bg-black">PlayStation</option>
-                  <option className="bg-black">Xbox</option>
-                  <option className="bg-black">PC</option>
-                  <option className="bg-black">Mobile</option>
-                </Select>
+                <label className="text-[9px] font-black uppercase text-gray-600 tracking-widest">Supported Platforms</label>
+                <div className="flex flex-wrap gap-2">
+                  {PLATFORMS.map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => togglePlatform(p)}
+                      className={`px-3 py-2 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all ${
+                        newPlatform.includes(p)
+                          ? 'bg-blue-600/15 border-blue-500 text-white'
+                          : 'bg-black/50 border-gray-800 text-gray-400 hover:border-gray-700'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
               </div>
+
+              {formError && (
+                <div className="text-red-400 text-[10px] font-bold bg-red-500/10 border border-red-500/20 p-3 rounded-xl">
+                  {formError}
+                </div>
+              )}
               <Button disabled={adding} className="w-full bg-blue-600 hover:bg-blue-500 py-7 font-black uppercase tracking-[0.3em] text-[10px] shadow-lg shadow-blue-600/20">
                 {adding ? 'Syncing...' : 'Register Title'}
               </Button>
@@ -183,8 +204,12 @@ export function GamesManagement() {
                       <span className="px-2 py-1 bg-black text-[9px] font-mono text-gray-500 rounded border border-gray-900 group-hover:text-blue-400 transition-colors">
                         /{game.slug}
                       </span>
-                      <span className="flex items-center gap-1.5 px-2 py-1 bg-blue-500/5 text-[9px] font-black text-blue-500 uppercase tracking-widest rounded border border-blue-500/10">
-                        {getPlatformIcon(game.platform)} {game.platform}
+                      <span className="flex flex-wrap items-center gap-1.5 px-2 py-1 bg-blue-500/5 text-[9px] font-black text-blue-500 uppercase tracking-widest rounded border border-blue-500/10">
+                        {(game.platform_support || []).map((p) => (
+                          <span key={p} className="inline-flex items-center gap-1">
+                            {getPlatformIcon(p)} {p}
+                          </span>
+                        ))}
                       </span>
                     </div>
                   </div>

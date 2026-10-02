@@ -1,7 +1,48 @@
 import { supabase } from '../supabaseClient';
 
+/**
+ * Bucket names verified against production on 2026-10-02 via
+ * GET /storage/v1/bucket (service role):
+ *   evidence -> private, allowed: image/jpeg, image/png, video/mp4
+ *   avatars  -> private, allowed: image/jpeg, image/png, 20MB cap
+ *
+ * The README previously documented a `match-screenshots` bucket; that bucket
+ * does not exist. All match proof lives in `evidence`.
+ */
 const AVATARS_BUCKET = 'avatars';
-const MATCH_EVIDENCE_BUCKET = 'evidence'; // FIX: Swapped from 'match-screenshots' to 'evidence'
+const MATCH_EVIDENCE_BUCKET = 'evidence';
+
+/**
+ * `match_results.screenshot_url` stores a bucket OBJECT PATH
+ * (e.g. "<match_id>/<timestamp>.jpg"). Some rows hold a full storage URL
+ * (signed or public) instead. Normalise both forms back to an object path so we
+ * always sign against the correct bucket + key.
+ */
+export function getEvidencePath(value: string | null | undefined): string {
+  if (!value) return '';
+  if (!value.startsWith('http')) return value;
+
+  try {
+    const url = new URL(value);
+    const signedMarker = `/storage/v1/object/sign/${MATCH_EVIDENCE_BUCKET}/`;
+    const publicMarker = `/storage/v1/object/public/${MATCH_EVIDENCE_BUCKET}/`;
+
+    if (url.pathname.includes(signedMarker)) {
+      return decodeURIComponent(url.pathname.split(signedMarker)[1]);
+    }
+    if (url.pathname.includes(publicMarker)) {
+      return decodeURIComponent(url.pathname.split(publicMarker)[1]);
+    }
+    return value;
+  } catch {
+    return value;
+  }
+}
+
+/** True when a path is already directly usable in an <img src>. */
+function isDirectUrl(value: string): boolean {
+  return value.startsWith('http');
+}
 
 export async function uploadAvatar(file: File, userId: string): Promise<string> {
   const ext = file.name.split('.').pop() || 'jpg';
@@ -41,11 +82,13 @@ export async function uploadMatchEvidence(file: File, matchId: string): Promise<
 }
 
 export async function getSignedUrl(path: string, expires = 3600): Promise<string | null> {
-  if (!path) return null;
-  // Now requests signatures from the 'evidence' bucket
+  const objectPath = getEvidencePath(path);
+  if (!objectPath) return null;
+  if (isDirectUrl(objectPath)) return objectPath;
+
   const { data, error } = await supabase.storage
     .from(MATCH_EVIDENCE_BUCKET)
-    .createSignedUrl(path, expires);
+    .createSignedUrl(objectPath, expires);
   if (error) {
     console.error('Failed to generate signed URL:', error.message);
     return null;
@@ -53,23 +96,52 @@ export async function getSignedUrl(path: string, expires = 3600): Promise<string
   return data?.signedUrl || null;
 }
 
+/**
+ * Batch-signs evidence paths.
+ *
+ * Keys of the returned map are the ORIGINAL input values (not the normalised
+ * object paths), so callers can look up by whatever they passed in. Values that
+ * are already absolute URLs are passed through untouched.
+ */
 export async function getSignedUrls(
   paths: string[],
   expires = 3600
 ): Promise<Record<string, string>> {
   if (!paths.length) return {};
-  // Now batch processes routes from the 'evidence' bucket
+
+  const out: Record<string, string> = {};
+  const needsSigning: string[] = [];
+  const originalFor = new Map<string, string>();
+
+  for (const p of paths) {
+    const norm = getEvidencePath(p);
+
+    if (!norm) continue;
+
+    if (isDirectUrl(norm)) {
+      out[p] = norm;
+    } else {
+      needsSigning.push(norm);
+      originalFor.set(norm, p);
+    }
+  }
+
+  if (!needsSigning.length) return out;
+
   const { data, error } = await supabase.storage
     .from(MATCH_EVIDENCE_BUCKET)
-    .createSignedUrls(paths, expires);
+    .createSignedUrls(needsSigning, expires);
 
   if (error) {
     console.error('Failed to generate signed URLs:', error.message);
-    return {};
+    return out;
   }
 
-  return (data || []).reduce((acc: Record<string, string>, item: any) => {
-    if (item.path && item.signedUrl) acc[item.path] = item.signedUrl;
-    return acc;
-  }, {});
+  for (const item of (data || []) as { path: string; signedUrl?: string }[]) {
+    if (!item.path || !item.signedUrl) continue;
+    const original = originalFor.get(item.path);
+    if (original) out[original] = item.signedUrl;
+  }
+
+  return out;
 }

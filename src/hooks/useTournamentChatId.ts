@@ -8,7 +8,7 @@ export function useTournamentChatId(tournamentId: string | undefined) {
     let cancelled = false;
     async function fetchOrCreate() {
       // Try to find existing chat for this tournament
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('chats')
         .select('id')
         .eq('scope', 'tournament')
@@ -18,7 +18,7 @@ export function useTournamentChatId(tournamentId: string | undefined) {
         if (!cancelled) setChatId(data.id);
       } else {
         // Create if not exists
-        const { data: created, error: createErr } = await supabase
+        const { data: created } = await supabase
           .from('chats')
           .insert({ scope: 'tournament', tournament_id: tournamentId })
           .select('id')

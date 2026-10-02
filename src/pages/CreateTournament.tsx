@@ -19,6 +19,11 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 
+interface GameRow {
+  id: string;
+  name: string;
+}
+
 export function CreateTournament() {
   const nav = useNavigate();
 
@@ -28,7 +33,7 @@ export function CreateTournament() {
   const [format, setFormat] = React.useState('single_elim');
   const [maxPlayers, setMaxPlayers] = React.useState(8);
   const [gameId, setGameId] = React.useState<string>('');
-  const [games, setGames] = React.useState<any[]>([]);
+  const [games, setGames] = React.useState<GameRow[]>([]);
 
   const [isAdmin, setIsAdmin] = React.useState<boolean | null>(null);
   const [err, setErr] = React.useState<string | null>(null);

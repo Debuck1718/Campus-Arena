@@ -7,7 +7,6 @@ import {
   banUser,
   unbanUser,
   getAllMatchResults,
-  removeMatchResult,
   getAllDisputes,
   updateDisputeStatus,
 } from '../lib/moderation';
@@ -33,7 +32,36 @@ import { Button, Card, Input } from '../components/ui';
 
 type AdminTab = 'users' | 'matches' | 'disputes' | 'tournaments';
 
-const TabButton = ({ active, onClick, icon, label }: any) => (
+// Rows for the wide `select('*')` admin queries, typed on just the columns the
+// table actually renders.
+interface AdminUserRow {
+  id: string;
+  username: string | null;
+}
+
+interface AdminTournamentRow {
+  id: string;
+  name: string;
+  max_players: number | null;
+  games?: { name: string } | null;
+}
+
+interface AdminResultRow {
+  id: string;
+  match_id: string;
+  status: string;
+  score_player1: string | number | null;
+  score_player2: string | number | null;
+  screenshot_url?: string | null;
+}
+
+interface AdminDisputeRow {
+  id: string;
+  match_id: string;
+  status: string;
+}
+
+const TabButton = ({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) => (
   <button
     onClick={onClick}
     className={`flex items-center gap-2 pb-4 px-2 text-xs font-black uppercase tracking-wider border-b-2 transition-all whitespace-nowrap ${active ? 'border-red-500 text-white' : 'border-transparent text-gray-400 hover:text-white'
@@ -66,7 +94,7 @@ const LoadingRow = ({ colSpan }: { colSpan: number }) => (
   </tr>
 );
 
-const ActionButton = ({ color, icon, onClick }: any) => (
+const ActionButton = ({ color, icon, onClick }: { color: string; icon: React.ReactNode; onClick: () => void }) => (
   <button onClick={onClick} className={`p-2 bg-gray-950 hover:bg-gray-900 border border-gray-700 rounded-lg transition-transform active:scale-95 ${color}`}>
     {icon}
   </button>
@@ -78,14 +106,15 @@ export function AdminPanel() {
   const [isAdmin, setIsAdmin] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState<AdminTab>('users');
   const [userId, setUserId] = React.useState('');
+  const [adminRole, setAdminRole] = React.useState<'admin' | 'moderator' | 'player'>('admin');
   const [status, setStatus] = React.useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [updatingId, setUpdatingId] = React.useState<string | null>(null);
 
-  const [users, setUsers] = React.useState<any[]>([]);
-  const [results, setResults] = React.useState<any[]>([]);
-  const [disputes, setDisputes] = React.useState<any[]>([]);
-  const [tournaments, setTournaments] = React.useState<any[]>([]);
+  const [users, setUsers] = React.useState<AdminUserRow[]>([]);
+  const [results, setResults] = React.useState<AdminResultRow[]>([]);
+  const [disputes, setDisputes] = React.useState<AdminDisputeRow[]>([]);
+  const [tournaments, setTournaments] = React.useState<AdminTournamentRow[]>([]);
   const [evidenceUrls, setEvidenceUrls] = React.useState<Record<string, string>>({});
 
   const [modal, setModal] = React.useState<{
@@ -98,11 +127,7 @@ export function AdminPanel() {
     isCurrentUserAdmin().then(setIsAdmin).catch(() => setIsAdmin(false));
   }, []);
 
-  React.useEffect(() => {
-    fetchData();
-  }, [activeTab]);
-
-  async function fetchData() {
+  const fetchData = React.useCallback(async () => {
     setLoading(true);
     setStatus(null);
 
@@ -115,7 +140,9 @@ export function AdminPanel() {
         const matchData = await getAllMatchResults();
         setResults(matchData);
 
-        const paths = matchData.map((res: any) => res.screenshot_url).filter(Boolean);
+        const paths = matchData
+          .map((res) => res.screenshot_url)
+          .filter((p): p is string => Boolean(p));
         const signedMap = await getSignedUrls(paths);
 
         const urls: Record<string, string> = {};
@@ -139,15 +166,23 @@ export function AdminPanel() {
         if (error) throw error;
         setTournaments(data || []);
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('Admin Fetch Error:', e);
-      setStatus({ type: 'error', text: e.message || 'Failed to load admin data.' });
+      setStatus({
+        type: 'error',
+        text: e instanceof Error ? e.message : 'Failed to load admin data.',
+      });
     } finally {
       setLoading(false);
     }
-  }
+  }, [activeTab]);
 
-  async function confirmMatchResult(result: any) {
+  // Declared after fetchData so the dependency array above can reference it.
+  React.useEffect(() => {
+    void fetchData();
+  }, [fetchData]);
+
+  async function confirmMatchResult(result: AdminResultRow) {
   setUpdatingId(result.id);
   setStatus(null);
 
@@ -164,18 +199,18 @@ export function AdminPanel() {
     });
 
     await fetchData();
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error('Confirm result failed:', e);
     setStatus({
       type: 'error',
-      text: e.message || 'Failed to confirm result.',
+      text: e instanceof Error ? e.message : 'Failed to confirm result.',
     });
   } finally {
     setUpdatingId(null);
   }
 }
 
-  async function disputeMatchResult(result: any) {
+  async function disputeMatchResult(result: AdminResultRow) {
     setUpdatingId(result.id);
     setStatus(null);
 
@@ -196,11 +231,11 @@ export function AdminPanel() {
 
       setStatus({ type: 'success', text: 'Match result marked as disputed.' });
       await fetchData();
-    } catch (e: any) {
-      console.error('Dispute result failed:', e);
+    } catch (e: unknown) {
+        console.error('Dispute result failed:', e);
       setStatus({
         type: 'error',
-        text: e.message || 'Failed to dispute result.',
+        text: e instanceof Error ? e.message : 'Failed to dispute result.',
       });
     } finally {
       setUpdatingId(null);
@@ -212,12 +247,21 @@ export function AdminPanel() {
     setStatus(null);
 
     try {
-      await makeAdmin(userId);
-      setStatus({ type: 'success', text: 'Administrative privileges granted.' });
+      await makeAdmin(userId, adminRole);
+      setStatus({
+        type: 'success',
+        text:
+          adminRole === 'player'
+            ? 'Administrative access revoked.'
+            : `Role '${adminRole}' granted.`,
+      });
       setUserId('');
       fetchData();
-    } catch (err: any) {
-      setStatus({ type: 'error', text: err.message || 'Promotion failed.' });
+    } catch (err: unknown) {
+      setStatus({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Promotion failed.',
+      });
     }
   }
 
@@ -304,8 +348,18 @@ export function AdminPanel() {
                     required
                   />
 
+                  <select
+                    value={adminRole}
+                    onChange={e => setAdminRole(e.target.value as 'admin' | 'moderator' | 'player')}
+                    className="bg-black border border-gray-700 text-white font-bold rounded-xl px-4 text-xs uppercase"
+                  >
+                    <option value="admin">Admin</option>
+                    <option value="moderator">Moderator</option>
+                    <option value="player">Revoke</option>
+                  </select>
+
                   <Button type="submit" className="bg-red-600 hover:bg-red-500 text-white font-black uppercase text-[10px] px-8 py-6 rounded-xl">
-                    Grant Admin
+                    {adminRole === 'player' ? 'Revoke Access' : 'Grant Role'}
                   </Button>
                 </form>
               </Card>

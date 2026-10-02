@@ -48,7 +48,7 @@ function TournamentScreenshots({ tournamentId }: { tournamentId: string }) {
 
       if (matchErr) throw matchErr;
 
-      const matchIds = (matches || []).map((m: any) => m.id);
+      const matchIds = (matches || []).map((m: { id: string }) => m.id);
       if (!matchIds.length) return [];
 
       const { data, error } = await supabase
@@ -62,15 +62,16 @@ function TournamentScreenshots({ tournamentId }: { tournamentId: string }) {
 
       if (error) throw error;
 
-      const rows = data || [];
-      const paths = rows.map((item: any) => item.screenshot_url).filter(Boolean);
+      const rows = (data || []).filter((item) => item.screenshot_url);
+      const paths = rows.map((item) => item.screenshot_url as string);
       const signedMap = await getSignedUrls(paths);
 
-      return rows.map((item: any) => ({
+      // The query already excludes null screenshot_url, but supabase still
+      // types the column nullable, so narrow it here for the JSX below.
+      return rows.map((item) => ({
         ...item,
-        screenshot_url: item.screenshot_url
-          ? signedMap[item.screenshot_url] ?? item.screenshot_url
-          : null,
+        screenshot_url: (signedMap[item.screenshot_url as string] ??
+          item.screenshot_url) as string,
       }));
     },
   });
@@ -90,7 +91,7 @@ function TournamentScreenshots({ tournamentId }: { tournamentId: string }) {
 
   return (
     <div className="flex gap-3">
-      {results.map((r: any) => (
+      {results.map((r) => (
         <a
           key={r.id}
           href={r.screenshot_url}
@@ -288,7 +289,7 @@ export function Tournaments() {
             </p>
 
             <p className="text-red-400/70 text-xs mt-2">
-              {(error as any).message}
+              {(error as Error).message}
             </p>
           </section>
         ) : data.length > 0 ? (

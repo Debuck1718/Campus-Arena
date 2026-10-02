@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { createBrowserRouter, RouterProvider, Outlet, Navigate, useNavigate, Link } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { Session } from '@supabase/supabase-js';
 import './styles.css';
 import { supabase } from './supabaseClient';
 import { Login } from './pages/Login';
@@ -38,21 +39,21 @@ function Home() {
 
       {/* Left side: Text Content */}
       <section className="flex-1 max-w-2xl animate-in fade-in slide-in-from-bottom-5 duration-700">
-        <div className="inline-block px-4 py-1 mb-6 text-sm font-semibold tracking-wide uppercase bg-blue-100 text-blue-600 rounded-full">
+        <div className="inline-block px-4 py-1 mb-6 text-sm font-semibold tracking-wide uppercase bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 rounded-full">
           Welcome to the Arena
         </div>
-        <h1 className="text-4xl md:text-6xl font-black leading-tight text-slate-900 mb-6">
-          Compete, Connect & <br />
-          <span className="text-blue-600">Celebrate</span>
+        <h1 className="text-4xl md:text-6xl font-black leading-tight text-white mb-6">
+          Compete, Connect &amp; <br />
+          <span className="text-cyan-400">Celebrate</span>
         </h1>
-        <p className="text-lg text-slate-600 mb-8 leading-relaxed">
+        <p className="text-lg text-slate-300 mb-8 leading-relaxed">
           The ultimate platform for students to showcase their skills. Join thrilling tournaments,
           track your progress, and become part of a vibrant campus community.
           Whether you’re a casual player or a fierce competitor, there’s a place for you here.
         </p>
         <Link
           to="/signup"
-          className="inline-flex items-center justify-center bg-blue-600 text-white font-bold py-4 px-10 rounded-full shadow-lg shadow-blue-200 hover:bg-blue-700 hover:-translate-y-1 transition-all duration-300"
+          className="inline-flex items-center justify-center bg-blue-600 text-white font-bold py-4 px-10 rounded-full shadow-lg shadow-blue-500/20 hover:bg-blue-500 hover:-translate-y-1 transition-all duration-300"
         >
           Get Started
         </Link>
@@ -87,7 +88,7 @@ function Home() {
 }
 
 function AuthGate() {
-  const [session, setSession] = React.useState<any | null>(null);
+  const [session, setSession] = React.useState<Session | null>(null);
   const [loading, setLoading] = React.useState(true);
   React.useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -114,20 +115,20 @@ function Layout() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col overflow-x-hidden">
+    <div className="min-h-screen bg-[#03040a] text-slate-100 flex flex-col overflow-x-hidden">
       <Navbar onLogout={logout} />
 
-      <main className="flex-grow w-full">
+      <main className="grow w-full">
         <Outlet />
       </main>
 
-      <footer className="relative z-10 py-8 border-t border-slate-200 text-center text-sm text-slate-500 bg-slate-50">
+      <footer className="relative z-10 py-8 border-t border-white/10 text-center text-sm text-slate-400 bg-[#03040a]">
         © {new Date().getFullYear()} CampusArena •
-        <Link to="/privacy" className="ml-2 hover:text-blue-600 transition-colors">
+        <Link to="/privacy" className="ml-2 hover:text-cyan-300 transition-colors">
           Privacy
         </Link>{' '}
         •
-        <Link to="/terms" className="ml-2 hover:text-blue-600 transition-colors">
+        <Link to="/terms" className="ml-2 hover:text-cyan-300 transition-colors">
           Terms
         </Link>
       </footer>

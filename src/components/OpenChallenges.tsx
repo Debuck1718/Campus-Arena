@@ -5,8 +5,16 @@ import { useNavigate } from 'react-router-dom';
 import { useProfilesMap } from '../hooks/useProfilesMap';
 import { useToast } from '../components/Toast';
 
+interface OpenChallenge {
+  id: string;
+  player1_id: string | null;
+  player2_id?: string | null;
+  status?: string | null;
+  game_id?: string | null;
+}
+
 export function OpenChallenges() {
-  const [challenges, setChallenges] = React.useState<any[]>([]);
+  const [challenges, setChallenges] = React.useState<OpenChallenge[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [currentUid, setCurrentUid] = React.useState<string | null>(null);
   const nav = useNavigate();
@@ -94,7 +102,7 @@ export function OpenChallenges() {
           {challenges.map((c) => (
             <div key={c.id} className="flex items-center justify-between gap-3 p-3 bg-black/40 border border-gray-900 rounded-xl hover:border-gray-800 transition-colors">
               <div className="text-xs text-gray-300 font-medium">
-                Challenge from <span className="font-black text-white uppercase tracking-tight">{nameMap.get(c.player1_id) || 'Unknown operative'}</span>
+                Challenge from <span className="font-black text-white uppercase tracking-tight">{(c.player1_id && nameMap.get(c.player1_id)) || 'Unknown operative'}</span>
               </div>
               <Button 
                 onClick={() => acceptChallenge(c.id)}

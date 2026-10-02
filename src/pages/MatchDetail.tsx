@@ -2,7 +2,6 @@ import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useMatch } from '../hooks/useMatch';
 import { useProfilesMap } from '../hooks/useProfilesMap';
-import { useMatchResults } from '../hooks/useMatchResults';
 import { supabase } from '../supabaseClient';
 import { Avatar, Card, Button } from '../components/ui';
 import { Chat } from '../components/Chat';

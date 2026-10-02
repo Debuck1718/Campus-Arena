@@ -11,5 +11,6 @@
     "javascriptreact": "html"
   },
   "tailwindCSS.classAttributes": ["class", "className"],
-  "tailwindCSS.emmetCompletions": true
+  "tailwindCSS.emmetCompletions": true,
+  "CodeGPT.apiKey": "CodeGPT Plus Beta"
 }

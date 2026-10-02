@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 
+export type NotificationPayload = Record<string, unknown>;
+
 export type Notification = {
   id: string;
   type: string;
-  payload: any;
+  payload: NotificationPayload;
   read_at: string | null;
   created_at: string;
 };
@@ -28,7 +30,7 @@ export function useNotifications() {
         .select('*')
         .eq('profile_id', uid)
         .order('created_at', { ascending: false });
-      if (!error && data) setNotifications(data);
+      if (!error && data) setNotifications(data as Notification[]);
       setLoading(false);
     }
     fetchNotifications();

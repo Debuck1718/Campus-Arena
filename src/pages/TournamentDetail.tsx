@@ -4,9 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../supabaseClient';
 import { useProfilesMap } from '../hooks/useProfilesMap';
 import { useMatchResults } from '../hooks/useMatchResults';
-import { awardBadge } from '../lib/achievements'; // Your achievement helper
 import championImg from '../images/champion.png';
-import cupImg from '../images/cup1.png';
 import winnerImg from '../images/winner.png';
 import {
   Trophy,
@@ -14,11 +12,11 @@ import {
   Users,
   Zap,
   ArrowLeft,
-  History,
   ShieldCheck
 } from 'lucide-react';
 import { Chat } from '../components/Chat';
 import { useTournamentChatId } from '../hooks/useTournamentChatId';
+import { Avatar } from '../components/ui';
 
 async function fetchTournament(id: string) {
   const { data, error } = await supabase.from('tournaments').select('*').eq('id', id).single();
@@ -39,6 +37,21 @@ async function fetchTournament(id: string) {
   return { t: data, players: players || [], matches: matches || [] };
 }
 
+/**
+ * Production note (verified 2026-10-02): tournaments has NO winner_id column.
+ * The champion is derived from the final knockout match, which is the only
+ * source of truth the schema actually guarantees.
+ */
+function resolveChampion(matches: { round_number: number; match_number: number; winner_id?: string | null }[]) {
+  const decided = matches.filter((m) => m.winner_id);
+  if (!decided.length) return null;
+  const final = decided.reduce((a, b) => {
+    if (b.round_number !== a.round_number) return b.round_number > a.round_number ? b : a;
+    return b.match_number > a.match_number ? b : a;
+  });
+  return final.winner_id || null;
+}
+
 export function TournamentDetail() {
   const { id } = useParams<{ id: string }>();
   const qc = useQueryClient();
@@ -56,21 +69,25 @@ export function TournamentDetail() {
   }, []);
 
   // --- ACHIEVEMENT LOGIC ---
-  // If tournament is completed and there's a winner, award the badge
-  React.useEffect(() => {
-    if (data?.t?.status === 'completed' && data?.t?.winner_id) {
-      awardBadge(data.t.winner_id, 'tournament_champion');
-    }
-  }, [data?.t?.status, data?.t?.winner_id]);
+  // Badges were previously awarded client-side via awardBadge(), which any
+  // visitor could trigger for an arbitrary player_id. Awarding is now the
+  // server's job (see migration 0019); the frontend only reads.
 
   const players = data?.players ?? [];
-  const matchData = data?.matches ?? [];
+  // Memoised: `?? []` allocates a fresh array on every render, which would give
+  // championId a new identity each time and defeat the memo.
+  const matchData = React.useMemo(() => data?.matches ?? [], [data?.matches]);
   const t = data?.t;
+  const championId = React.useMemo(
+    () => resolveChampion(matchData),
+    [matchData]
+  );
   const idList = [
     ...players.map((p: { profile_id: string }) => p.profile_id),
     ...matchData
       .flatMap((m: { player1_id?: string; player2_id?: string; winner_id?: string }) => [m.player1_id, m.player2_id, m.winner_id])
-      .filter((pid): pid is string => Boolean(pid))
+      .filter((pid): pid is string => Boolean(pid)),
+    ...(championId ? [championId] : [])
   ];
   const { nameMap, avatarMap } = useProfilesMap(idList);
   const chatId = useTournamentChatId(id);
@@ -80,7 +97,7 @@ export function TournamentDetail() {
   async function handleAction(rpcName: string) {
     try {
       setErr(null);
-      const params: any = {};
+      const params: Record<string, string | undefined> = {};
       if (rpcName.startsWith('tournament_')) {
         params.p_id = id;
       } else {
@@ -90,13 +107,13 @@ export function TournamentDetail() {
       const { error } = await supabase.rpc(rpcName, params);
       if (error) throw error;
       qc.invalidateQueries({ queryKey: ['tournament', id] });
-    } catch (e: any) {
-      setErr(e.message || `Action failed: ${rpcName}`);
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : `Action failed: ${rpcName}`);
     }
   }
 
   if (isLoading) return <div className="min-h-screen bg-[#050505] flex items-center justify-center text-blue-500 font-black animate-pulse uppercase tracking-widest">Entering Arena...</div>;
-  if (error || !data) return <div className="container py-10 text-red-500">Error: {(error as any)?.message}</div>;
+  if (error || !data) return <div className="container py-10 text-red-500">Error: {(error as Error)?.message}</div>;
 
   // Grouping matches into rounds
   const rounds: Record<number, typeof matchData> = {};
@@ -143,15 +160,15 @@ export function TournamentDetail() {
           {/* BRACKET AREA */}
           <div className="lg:col-span-3">
             <div className="flex items-center gap-3 mb-8">
-              <img src={championImg} alt="Bracket" className="h-6" />
-              <h3 className="text-sm font-black uppercase tracking-[0.3em] text-blue-500">Combat Grid</h3>
+              <img src={championImg} alt="" className="h-6" />
+              <h3 className="text-sm font-black uppercase tracking-[0.3em] text-blue-400">Combat Grid</h3>
             </div>
 
-            {sortedRoundNumbers.length === 0 ? (
-              <div className="py-20 text-center border-2 border-dashed border-gray-900 rounded-[2rem] opacity-30">
-                <p className="text-xs font-black uppercase tracking-[0.4em]">Awaiting Combatants</p>
-              </div>
-            ) : (
+                {sortedRoundNumbers.length === 0 ? (
+                  <div className="py-20 text-center border-2 border-dashed border-white/10 rounded-[2rem]">
+                    <p className="text-xs font-black uppercase tracking-[0.4em] text-slate-400">Awaiting Combatants</p>
+                  </div>
+                ) : (
               <div className="flex gap-8 overflow-x-auto pb-10 snap-x">
                 {sortedRoundNumbers.map((round) => (
                   <div key={round} className="flex flex-col gap-6 min-w-[280px] snap-center">
@@ -174,47 +191,51 @@ export function TournamentDetail() {
             )}
 
             {/* WINNER SPOTLIGHT */}
-            {t.winner_id && (
+            {championId && (
               <div className="mt-20 flex flex-col items-center bg-gradient-to-t from-blue-900/10 to-transparent p-12 rounded-[3rem] border border-blue-500/10 shadow-2xl">
                 <img src={winnerImg} alt="Winner" className="h-32 mb-6 animate-bounce" />
                 <h2 className="text-xs font-black uppercase tracking-[0.5em] text-blue-500 mb-2">Grand Champion</h2>
-                <div className="text-4xl font-black uppercase italic tracking-tighter text-white">{name(t.winner_id)}</div>
+                <div className="text-4xl font-black uppercase italic tracking-tighter text-white">{name(championId)}</div>
                 <div className="mt-6 px-4 py-1 bg-blue-600/10 border border-blue-500/20 rounded-full text-blue-400 text-[9px] font-black uppercase tracking-widest">
                   Badge Awarded: Tournament Champion
                 </div>
               </div>
             )}
           </div>
-          {/* Tournament Chat */}
-          <div className="mt-12">
-            <div className="flex items-center gap-3 mb-3">
-              <Gamepad2 size={18} className="text-blue-500" />
-              <h3 className="text-sm font-black uppercase tracking-[0.3em] text-blue-500">Tournament Chat</h3>
-            </div>
-            <Chat chatId={chatId} />
-          </div>
-
-          {/* SIDEBAR: PLAYERS */}
-          <div className="lg:col-span-1">
-            <div className="bg-[#0a0a0c] border border-white/5 p-6 rounded-[2rem] sticky top-6">
-              <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-500 mb-6 flex items-center gap-2">
+          {/* SIDEBAR: PLAYERS + TOURNAMENT CHAT */}
+          <div className="lg:col-span-1 space-y-6">
+            <div className="bg-[#0a0a0c] border border-white/10 p-5 rounded-2xl">
+              <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-300 mb-5 flex items-center gap-2">
                 <Users size={14} /> Registered Operatives
               </h3>
-              <div className="space-y-4">
-                {players.map((p: any) => (
-                  <div key={p.profile_id} className="flex items-center justify-between group">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-[10px] font-black group-hover:border-blue-500 transition-colors">
-                        {name(p.profile_id).charAt(0)}
-                      </div>
-                      <span className="text-sm font-bold uppercase italic tracking-tight text-gray-300 group-hover:text-white">
+
+              <div className="space-y-3">
+                {players.map((p: { profile_id: string }) => (
+                  <div key={p.profile_id} className="flex items-center justify-between gap-2 group">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Avatar
+                        src={avatar(p.profile_id)}
+                        alt={name(p.profile_id)}
+                        size={30}
+                      />
+                      <span className="text-sm font-bold text-slate-200 truncate group-hover:text-white transition-colors">
                         {name(p.profile_id)}
                       </span>
                     </div>
-                    {t.winner_id === p.profile_id && <Trophy size={14} className="text-yellow-500" />}
+                    {championId === p.profile_id && <Trophy size={14} className="text-yellow-400 shrink-0" />}
                   </div>
                 ))}
               </div>
+            </div>
+
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <Gamepad2 size={16} className="text-blue-400" />
+                <h3 className="text-xs font-black uppercase tracking-[0.3em] text-blue-300">
+                  Tournament Chat
+                </h3>
+              </div>
+              <Chat chatId={chatId} />
             </div>
           </div>
 
@@ -225,7 +246,27 @@ export function TournamentDetail() {
 }
 
 // Sub-component for individual Match Cards
-function MatchCard({ m, uid, name, avatar, tournamentId }: any) {
+function MatchCard({
+  m,
+  uid,
+  name,
+  avatar,
+  tournamentId,
+}: {
+  m: {
+    id: string;
+    player1_id?: string | null;
+    player2_id?: string | null;
+    winner_id?: string | null;
+    status?: string | null;
+    round_number?: number | null;
+    match_number?: number | null;
+  };
+  uid: string | null;
+  name: (pid?: string | null) => string;
+  avatar: (pid?: string | null) => string | null;
+  tournamentId?: string;
+}) {
   const involved = uid && (uid === m.player1_id || uid === m.player2_id);
   const isP1Winner = m.winner_id === m.player1_id;
   const isP2Winner = m.winner_id === m.player2_id;
@@ -244,14 +285,14 @@ function MatchCard({ m, uid, name, avatar, tournamentId }: any) {
           }`}>
           {avatar(m.player1_id) && (
             <img
-              src={avatar(m.player1_id)}
+              src={avatar(m.player1_id)!}
               alt={name(m.player1_id)}
-              className="w-12 h-12 rounded-full object-cover border-2 border-blue-500/40 flex-shrink-0"
+              className="w-12 h-12 rounded-full object-cover border-2 border-blue-500/40 shrink-0"
             />
           )}
           <div className="flex-1 min-w-0 flex justify-between items-center gap-2">
             <span className="text-base font-bold uppercase italic tracking-tight text-blue-300 bg-black/30 px-2 py-1 rounded truncate">{name(m.player1_id)}</span>
-            {isP1Winner && <ShieldCheck size={16} className="text-blue-500 flex-shrink-0" />}
+            {isP1Winner && <ShieldCheck size={16} className="text-blue-500 shrink-0" />}
           </div>
         </div>
         <div className="h-[1px] bg-white/5" />
@@ -259,21 +300,21 @@ function MatchCard({ m, uid, name, avatar, tournamentId }: any) {
           }`}>
           {avatar(m.player2_id) && (
             <img
-              src={avatar(m.player2_id)}
+              src={avatar(m.player2_id)!}
               alt={name(m.player2_id)}
-              className="w-12 h-12 rounded-full object-cover border-2 border-blue-500/40 flex-shrink-0"
+              className="w-12 h-12 rounded-full object-cover border-2 border-blue-500/40 shrink-0"
             />
           )}
           <div className="flex-1 min-w-0 flex justify-between items-center gap-2">
             <span className="text-base font-bold uppercase italic tracking-tight text-blue-300 bg-black/30 px-2 py-1 rounded truncate">{name(m.player2_id)}</span>
-            {isP2Winner && <ShieldCheck size={16} className="text-blue-500 flex-shrink-0" />}
+            {isP2Winner && <ShieldCheck size={16} className="text-blue-500 shrink-0" />}
           </div>
         </div>
       </div>
 
       {results && results.length > 0 && (
         <div className="pt-3 border-t border-white/5 flex gap-2 overflow-x-auto">
-          {results.map((r: any) => r.screenshot_url && (
+          {results.map((r) => r.screenshot_url && (
             <img key={r.id} src={r.screenshot_url} alt="Proof" className="h-10 w-10 object-cover rounded-lg border border-white/10" />
           ))}
         </div>

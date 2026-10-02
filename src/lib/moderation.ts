@@ -54,15 +54,18 @@ export async function getAllDisputes() {
   return data;
 }
 
-export async function updateDisputeStatus(
-  disputeId: string,
-  status: 'pending' | 'investigating' | 'resolved' | 'dismissed'
-) {
+/**
+ * Production dispute status enum (verified 2026-10-02):
+ * open | under_review | resolved | rejected
+ */
+export type DisputeStatus = 'open' | 'under_review' | 'resolved' | 'rejected';
+
+export async function updateDisputeStatus(disputeId: string, status: DisputeStatus) {
   const { error } = await supabase
     .from('disputes')
     .update({
       status,
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
     })
     .eq('id', disputeId);
 

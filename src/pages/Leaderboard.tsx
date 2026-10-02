@@ -3,17 +3,14 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../supabaseClient';
 import { Avatar } from '../components/ui';
+import { getRankTitle, getProgressTitle, getWinRate } from '../lib/ranking';
 import {
-  Trophy,
   Flame,
   Award,
   TrendingUp,
   Medal,
-  Swords,
   ShieldCheck,
-  Star,
   Crown,
-  Gamepad2,
 } from 'lucide-react';
 
 interface LeaderboardProfile {
@@ -33,29 +30,6 @@ interface LeaderboardRow {
 
 function getProfile(row: LeaderboardRow) {
   return Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
-}
-
-function getRankTitle(elo: number) {
-  if (elo >= 2200) return 'Arena Legend';
-  if (elo >= 2000) return 'Grand Champion';
-  if (elo >= 1800) return 'Elite';
-  if (elo >= 1600) return 'Diamond';
-  if (elo >= 1400) return 'Gold';
-  if (elo >= 1200) return 'Silver';
-  return 'Bronze';
-}
-
-function getProgressTitle(points: number) {
-  if (points >= 500) return 'Veteran';
-  if (points >= 250) return 'Pro Competitor';
-  if (points >= 100) return 'Rising Star';
-  if (points >= 25) return 'Contender';
-  return 'New Recruit';
-}
-
-function getWinRate(wins: number, losses: number) {
-  const total = wins + losses;
-  return total > 0 ? Math.round((wins / total) * 100) : 0;
 }
 
 async function fetchLeaderboard(): Promise<LeaderboardRow[]> {

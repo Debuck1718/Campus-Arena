@@ -92,9 +92,22 @@ Setup (Supabase + DB)
    5. supabase/migrations/0005_automation_and_storage.sql
    6. supabase/migrations/0006_automation_followups.sql
    7. supabase/migrations/0007_groups_and_knockout.sql
-   8. supabase/migrations/0009_scheduling_and_reminders.sql
+   8. supabase/migrations/0008_tournament_rpc_and_indexes.sql
+   9. supabase/migrations/0009_scheduling_and_reminders.sql
+   10. supabase/migrations/0010_claim_quick_match.sql
+   11. supabase/migrations/0011_match_triggers.sql
+   12. supabase/migrations/0012_fix_quick_match_and_online_status.sql
+   13. supabase/migrations/0013_add_missing_fields_and_rls.sql
+   14. supabase/migrations/0014_chats_insert_policy.sql
+   15. supabase/migrations/0015_matches_update_and_insert_policies.sql
+   16. supabase/migrations/0016_seed_tournament_players.sql
+   17. supabase/migrations/0017_fix_matches_insert_policy.sql
+   18. supabase/migrations/0018_fix_matches_update_delete_policy.sql
+   19. supabase/migrations/0019_frontend_contract_alignment.sql
+   20. supabase/migrations/0020_unify_admin_source_of_truth.sql
 3. Create private Storage buckets:
-   - match-screenshots (private): for match proof images and videos. The app uploads evidence files here and stores only the object path in `match_results.screenshot_url`.
+   - evidence (private): for match proof images and videos. The app uploads evidence files here and stores only the object path in `match_results.screenshot_url`.
+     NOTE: this bucket is named `evidence`, NOT `match-screenshots`. An earlier revision of this README said `match-screenshots`; that bucket does not exist, and following the old instructions breaks match-proof display.
    - avatars (private): for user profile pictures
      Note: Ensure authenticated users can upload to these buckets (Storage policies). Keep buckets private and access files via signed URLs only. Limit uploads to image/_ and video/_ MIME types and ~5 MB for best UX.
 4. Seed check: select \* from games;
@@ -116,7 +129,7 @@ Commands (cheatsheet)
 - npm run build # type-check then build for production
 - npm run preview # preview production build
 - npm run typecheck # TypeScript check (no emit)
-- npm run lint # lint placeholder (configure ESLint/Prettier later)
+- npm run lint # ESLint (config in .eslintrc.cjs)
 
 Environment management
 
@@ -130,13 +143,13 @@ Environment management
 Frontend Quick Start
 
 - Ensure .env.local has VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY
-- In Supabase Storage, create private buckets: match-screenshots and avatars
+- In Supabase Storage, create private buckets: evidence and avatars
 - Run: npm install && npm run dev
 - Sign up via /signup (this creates your profile row)
 - Create a match challenge via /matches/new to invite a campus opponent for PES or local play
 - Accept open challenges from the dashboard and use the match chat to coordinate a hostel meetup location
 - Create a tournament at /tournaments/create, then join it and start single elimination
-- Submit a result at /tournaments/:id/submit/:matchId; the frontend uploads proof to the private `match-screenshots` bucket and saves the storage path in `match_results.screenshot_url`
+- Submit a result at /tournaments/:id/submit/:matchId; the frontend uploads proof to the private `evidence` bucket and saves the storage path in `match_results.screenshot_url`
 - Admins can preview submitted evidence from the Admin Panel Matches tab using on-demand signed URLs
 
 UI/Frontend
@@ -225,7 +238,7 @@ Troubleshooting
 
 - RLS: authenticate and ensure a matching profiles row; add your profile_id to admin_roles for admin tasks
 - Missing function/relation: verify all migrations ran in order
-- Storage: match-screenshots bucket must be private; evidence is stored as a bucket object path and previewed via signed URLs
+- Storage: evidence bucket must be private; proof is stored as a bucket object path and previewed via signed URLs
 
 Architecture diagram
 Frontend (React/Vite) ── Supabase JS ──> Supabase (Auth + Postgres + Storage)
@@ -233,7 +246,7 @@ Frontend (React/Vite) ── Supabase JS ──> Supabase (Auth + Postgres + Sto
 ├─ RPCs/Functions: create_tournament, lock_and_generate_single_elim, ...
 ├─ Triggers: advance_winner, progress_bracket_on_match_complete, ...
 ├─ RLS: row ownership, admin_roles via is_admin()
-└─ Storage: match-screenshots (private, signed URLs)
+└─ Storage: evidence (private, signed URLs)
 
 Security model (RLS overview)
 
@@ -255,7 +268,10 @@ Data privacy and security
 
 Maintainer runbook
 
-- Promote a user to admin:
+- Promote a user to admin (preferred: use the Admin Panel, which calls the
+  `set_admin_role` RPC):
+  select set_admin_role('<profile_uuid>', 'admin');
+  -- or directly (the sync_profile_role trigger keeps profiles.role in sync):
   insert into admin_roles(profile_id, role) values ('<profile_uuid>', 'admin') on conflict (profile_id) do update set role='admin';
 - Resolve a dispute (mark resolved):
   update disputes set status='resolved', updated_at=now() where id='<dispute_uuid>';
@@ -297,21 +313,24 @@ License
 
 Project status
 
-- Ready for production deployment.
+- Project status: backend and frontend verified (typecheck, lint, build all
+  pass). The verification harness is `node scripts/verify.mjs`. Not yet
+  production-hardened: no automated tests for bracket progression, and the
+  staging smoke test in the Go-Live guide below has not been executed.
 
 Build commands
 
-- npm run typecheck
+- node scripts/verify.mjs (typecheck + lint + build, runs in a temp dir)
 - npm run build
 - npm run preview (to test the production build locally)
 
 Finalization checklist
 Database (Supabase)
 
-- [ ] Run all migrations in order (0001 → 0009).
+- [ ] Run all migrations in order (0001 → 0020).
 - [ ] Verify RLS policies allow intended reads/writes (profiles, tournaments, matches, results).
 - [ ] Confirm RPCs exist and run: create_tournament, join_tournament, leave_tournament, tournament_open/lock/start/complete, lock_and_generate_single_elim, generate_groups, advance_groups_to_knockout.
-- [ ] Storage buckets created (private): match-screenshots, avatars.
+- [ ] Storage buckets created (private): evidence, avatars.
 
 Storage
 

@@ -2,12 +2,12 @@ import React from 'react';
 import { supabase } from '../supabaseClient';
 import { SEO } from '../components/SEO';
 import { Button, Card, Input } from '../components/ui';
-import { 
-  LifeBuoy, 
-  Gavel, 
-  AlertTriangle, 
-  Send, 
-  ShieldAlert, 
+import {  uploadMatchEvidence } from '../lib/storage';
+import {
+  Gavel,
+  AlertTriangle,
+  Send,
+  ShieldAlert,
   CheckCircle2,
   UploadCloud,
   Hash,
@@ -15,11 +15,12 @@ import {
 } from 'lucide-react';
 
 export function Support() {
-  const [category, setCategory] = React.useState('Match Dispute');
+  const [category, setCategory] = React.useState('match_dispute');
   const [description, setDescription] = React.useState('');
   const [matchId, setMatchId] = React.useState('');
   const [loading, setLoading] = React.useState(false);
   const [submitted, setSubmitted] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
   const [files, setFiles] = React.useState<File[]>([]);
 
   // Simple handler for multiple file selection UI
@@ -36,29 +37,45 @@ export function Support() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
+    setError(null);
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Unauthorized");
+      if (!user) throw new Error('Unauthorized');
 
-      // Note: In a real flow, you'd upload files to Supabase Storage first 
-      // and get the resulting URLs for the evidence_urls array.
-      const mockUrls: string[] = files.map(f => `evidence/${user.id}/${f.name}`);
+      /*
+       * Evidence files must actually be uploaded before the dispute can
+       * reference them. This previously stored fabricated strings like
+       * "evidence/<uid>/<name>" that pointed at objects which never existed.
+       * Files are now uploaded to the private `evidence` bucket and we store
+       * the real object paths.
+       *
+       * The bucket accepts image/jpeg, image/png and video/mp4 only.
+       */
+      const uploadedPaths: string[] = [];
+      for (const file of files) {
+        const path = await uploadMatchEvidence(file, user.id);
+        if (path) uploadedPaths.push(path);
+      }
 
+      // Production status enum (verified 2026-10-02): open | under_review |
+      // resolved | rejected. 'pending' was invalid and the insert failed.
       const { error } = await supabase.from('disputes').insert({
         match_id: matchId || null,
         raised_by: user.id,
         category,
         description,
-        evidence_urls: mockUrls,
-        status: 'pending' // Default status
+        evidence_urls: uploadedPaths,
+        status: 'open',
       });
 
       if (error) throw error;
       setSubmitted(true);
-    } catch (err: any) {
-      console.error("Dispute Submission Failed:", err.message);
-      alert("Submission failed. Please check your connection.");
+      setFiles([]);
+      setDescription('');
+    } catch (err: unknown) {
+      console.error('Dispute Submission Failed:', err);
+      setError(err instanceof Error ? err.message : 'Submission failed.');
     } finally {
       setLoading(false);
     }
@@ -120,29 +137,30 @@ export function Support() {
                     <Input 
                       placeholder="e.g. 550e8400-e29b..."
                       value={matchId}
-                      onChange={(e) => setMatchId(e.target.value)}
+                      onChange={(e) => setMatchId(e.target.value.trim())}
                       className="bg-black border-gray-800 font-mono text-xs uppercase"
-                      required
                     />
                   </div>
                   <div>
                     <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2 block">Category</label>
-                    <select 
+                    <select
                       value={category}
                       onChange={(e) => setCategory(e.target.value)}
                       className="w-full bg-black border border-gray-800 rounded-xl p-3 text-xs font-black uppercase outline-none focus:border-blue-600"
                     >
-                      <option>Match Dispute</option>
-                      <option>Player Harassment</option>
-                      <option>Account Issues</option>
-                      <option>Other</option>
+                      <option value="match_dispute">Match Dispute</option>
+                      <option value="no_show">No Show</option>
+                      <option value="cheating">Cheating / Misconduct</option>
+                      <option value="harassment">Player Harassment</option>
+                      <option value="account">Account Issues</option>
+                      <option value="other">Other</option>
                     </select>
                   </div>
                 </div>
 
                 <div>
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2 block">Incident Description</label>
-                  <textarea 
+                  <textarea
                     className="w-full bg-black border border-gray-800 rounded-2xl p-5 text-sm font-bold min-h-[160px] focus:border-blue-600 outline-none transition-all placeholder:text-gray-700"
                     placeholder="Describe exactly what happened during or after the match..."
                     value={description}
@@ -171,6 +189,12 @@ export function Support() {
                   </div>
                 </div>
 
+                {error && (
+                  <div className="flex items-center gap-2 text-[10px] font-black uppercase text-red-300 bg-red-500/10 border border-red-500/30 rounded-xl p-3">
+                    <AlertTriangle size={14} /> {error}
+                  </div>
+                )}
+
                 <Button 
                   disabled={loading}
                   className="w-full bg-blue-600 hover:bg-blue-500 py-7 rounded-2xl font-black uppercase tracking-[0.2em] flex items-center justify-center gap-3 shadow-lg shadow-blue-600/20"
@@ -187,7 +211,7 @@ export function Support() {
   );
 }
 
-function Step({ icon, title, text }: any) {
+function Step({ icon, title, text }: { icon: React.ReactNode; title: string; text: string }) {
   return (
     <div className="flex gap-4 p-4 rounded-2xl bg-white/[0.02] border border-white/5">
       <div className="mt-1 text-blue-500">{icon}</div>

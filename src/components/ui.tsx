@@ -1,4 +1,6 @@
 import React from 'react';
+import { Link, NavLink } from 'react-router-dom';
+import { Bell, Menu, X } from 'lucide-react';
 import { useNotifications } from '../hooks/useNotifications';
 import clsx from 'clsx';
 import { supabase } from '../supabaseClient';
@@ -104,70 +106,91 @@ export function Navbar({ onLogout }: { onLogout?: () => void }) {
     })();
   }, []);
 
+  const links = [
+    { to: '/dashboard', label: 'Dashboard' },
+    { to: '/tournaments', label: 'Tournaments' },
+    { to: '/leaderboard', label: 'Rankings' },
+    { to: '/tournaments/create', label: 'Create' },
+    { to: '/support', label: 'Support' },
+    { to: '/profile', label: 'Profile' },
+  ];
+
   return (
-    <nav className="sticky top-0 z-10 bg-white/80 backdrop-blur border-b border-gray-200">
+    <nav className="sticky top-0 z-40 bg-[#05060f]/90 backdrop-blur border-b border-white/10">
       <div className="container flex items-center gap-4 py-3">
-        <a href="/" className="font-bold text-primary-600">
-          CampusArena
-        </a>
-        <div className="hidden sm:flex items-center gap-4 ml-6">
-          <a href="/dashboard" className="text-gray-700 hover:text-primary-600">
-            Dashboard
-          </a>
-          <a href="/tournaments" className="text-gray-700 hover:text-primary-600">
-            Tournaments
-          </a>
-          <a href="/leaderboard" className="text-gray-700 hover:text-primary-600">
-            Rankings
-          </a>
-          <a href="/tournaments/create" className="text-gray-700 hover:text-primary-600">
-            Create
-          </a>
-          <a href="/support" className="text-gray-700 hover:text-primary-600">
-            Support
-          </a>
-          <a href="/profile" className="text-gray-700 hover:text-primary-600">
-            Profile
-          </a>
+        <Link
+          to="/"
+          className="font-black text-white tracking-tight shrink-0 hover:text-cyan-300 transition-colors"
+        >
+          Campus<span className="text-cyan-400">Arena</span>
+        </Link>
+
+        <div className="hidden lg:flex items-center gap-1 ml-4">
+          {links.map((l) => (
+            <NavLink
+              key={l.to}
+              to={l.to}
+              className={({ isActive }) =>
+                clsx(
+                  'px-3 py-2 rounded-lg text-sm font-semibold transition-colors',
+                  isActive
+                    ? 'bg-cyan-500/10 text-cyan-300'
+                    : 'text-slate-300 hover:text-white hover:bg-white/5'
+                )
+              }
+            >
+              {l.label}
+            </NavLink>
+          ))}
         </div>
-        <div className="ml-auto hidden sm:flex items-center gap-3">
+
+        <div className="ml-auto hidden lg:flex items-center gap-3">
           {/* Notification Bell */}
           <div className="relative">
             <button
-              className="relative p-2 rounded-full hover:bg-gray-100"
+              className="relative p-2 rounded-full text-slate-200 hover:bg-white/10 transition-colors"
               aria-label="Notifications"
               onClick={() => setNotifOpen((v) => !v)}
             >
-              <span role="img" aria-label="bell">🔔</span>
+              <Bell size={18} />
               {notifications.filter((n) => !n.read_at).length > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full text-xs px-1.5">
+                <span className="absolute -top-0.5 -right-0.5 min-w-5 h-5 px-1 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center">
                   {notifications.filter((n) => !n.read_at).length}
                 </span>
               )}
             </button>
+
             {notifOpen && (
-              <div className="absolute right-0 mt-2 w-80 bg-white border rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
-                <div className="p-3 border-b font-semibold">Notifications</div>
+              <div className="absolute right-0 mt-2 w-80 max-h-96 overflow-y-auto rounded-2xl bg-[#0a0c18] border border-white/10 shadow-2xl z-50">
+                <div className="p-3 border-b border-white/10 font-bold text-slate-100">
+                  Notifications
+                </div>
+
                 {loading ? (
-                  <div className="p-3 text-gray-500">Loading...</div>
+                  <div className="p-3 text-slate-400">Loading...</div>
                 ) : notifications.length === 0 ? (
-                  <div className="p-3 text-gray-500">No notifications</div>
+                  <div className="p-3 text-slate-400">No notifications</div>
                 ) : (
                   notifications.map((n) => (
                     <div
                       key={n.id}
                       className={clsx(
-                        'px-4 py-2 text-sm border-b last:border-b-0 flex justify-between items-center',
-                        !n.read_at ? 'bg-blue-50' : 'bg-white'
+                        'px-4 py-2.5 text-sm border-b border-white/5 last:border-b-0 flex justify-between items-center gap-3',
+                        !n.read_at ? 'bg-cyan-500/10' : 'bg-transparent'
                       )}
                     >
-                      <div>
-                        <div className="font-medium">{n.type.replace(/_/g, ' ')}</div>
-                        <div className="text-xs text-gray-500">{new Date(n.created_at).toLocaleString()}</div>
+                      <div className="min-w-0">
+                        <div className="font-semibold text-slate-100 capitalize">
+                          {n.type.replace(/_/g, ' ')}
+                        </div>
+                        <div className="text-[11px] text-slate-400">
+                          {new Date(n.created_at).toLocaleString()}
+                        </div>
                       </div>
+
                       {!n.read_at && (
                         <button
-                          className="text-xs text-primary-600 hover:underline ml-2"
+                          className="shrink-0 text-[11px] font-bold text-cyan-300 hover:underline"
                           onClick={() => markAsRead(n.id)}
                         >
                           Mark read
@@ -179,52 +202,65 @@ export function Navbar({ onLogout }: { onLogout?: () => void }) {
               </div>
             )}
           </div>
-          <a href="/profile" title="Your profile" className="flex items-center gap-2">
-            <Avatar src={avatarUrl} alt={username} size={28} />
-            <span className="hidden sm:inline text-sm text-gray-700">{username}</span>
-          </a>
+
+          <Link to="/profile" title="Your profile" className="flex items-center gap-2 shrink-0">
+            <Avatar src={avatarUrl} alt={username} size={30} />
+            <span className="text-sm font-semibold text-slate-200 max-w-24 truncate">
+              {username}
+            </span>
+          </Link>
+
           {onLogout && (
-            <Button onClick={onLogout} className="hidden sm:inline-flex">
+            <Button onClick={onLogout} variant="outline" className="border-white/15 text-slate-200">
               Logout
             </Button>
           )}
         </div>
+
         <button
-          className="sm:hidden ml-auto btn btn-outline px-3 py-1.5"
+          className="lg:hidden ml-auto inline-flex items-center justify-center p-2.5 rounded-xl border border-white/10 bg-white/5 text-slate-100"
           onClick={() => setMenuOpen((v) => !v)}
           aria-label="Toggle menu"
           aria-expanded={menuOpen}
         >
-          ☰
+          {menuOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
       </div>
+
       {menuOpen && (
-        <div className="sm:hidden w-full bg-white border-t border-b border-gray-200">
-          <div className="container flex flex-col gap-3 py-3">
-            <a href="/dashboard" className="text-gray-700 hover:text-primary-600">
-              Dashboard
-            </a>
-            <a href="/tournaments" className="text-gray-700 hover:text-primary-600">
-              Tournaments
-            </a>
-            <a href="/leaderboard" className="text-gray-700 hover:text-primary-600">
-              Rankings
-            </a>
-            <a href="/tournaments/create" className="text-gray-700 hover:text-primary-600">
-              Create
-            </a>
-            <a href="/support" className="text-gray-700 hover:text-primary-600">
-              Support
-            </a>
-            <a href="/profile" className="text-gray-700 hover:text-primary-600">
-              Profile
-            </a>
-            <div className="flex items-center justify-between pt-2">
-              <a href="/profile" title="Your profile" className="flex items-center gap-2">
-                <Avatar src={avatarUrl} alt={username} size={28} />
-                <span className="text-sm text-gray-700">{username}</span>
-              </a>
-              {onLogout && <Button onClick={onLogout}>Logout</Button>}
+        <div className="lg:hidden w-full bg-[#05060f] border-t border-white/10">
+          <div className="container flex flex-col gap-1 py-3">
+            {links.map((l) => (
+              <NavLink
+                key={l.to}
+                to={l.to}
+                onClick={() => setMenuOpen(false)}
+                className={({ isActive }) =>
+                  clsx(
+                    'px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors',
+                    isActive ? 'bg-cyan-500/10 text-cyan-300' : 'text-slate-300'
+                  )
+                }
+              >
+                {l.label}
+              </NavLink>
+            ))}
+
+            <div className="flex items-center justify-between pt-3 mt-2 border-t border-white/10">
+              <Link
+                to="/profile"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-2 min-w-0"
+              >
+                <Avatar src={avatarUrl} alt={username} size={30} />
+                <span className="text-sm font-semibold text-slate-200 truncate">{username}</span>
+              </Link>
+
+              {onLogout && (
+                <Button onClick={onLogout} variant="outline" className="border-white/15 text-slate-200">
+                  Logout
+                </Button>
+              )}
             </div>
           </div>
         </div>

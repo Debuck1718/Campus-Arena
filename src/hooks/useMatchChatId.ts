@@ -8,7 +8,7 @@ export function useMatchChatId(matchId: string | undefined) {
     let cancelled = false;
     async function fetchOrCreate() {
       // Try to find existing chat for this match
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('chats')
         .select('id')
         .eq('scope', 'match')
@@ -18,7 +18,7 @@ export function useMatchChatId(matchId: string | undefined) {
         if (!cancelled) setChatId(data.id);
       } else {
         // Create if not exists
-        const { data: created, error: createErr } = await supabase
+        const { data: created } = await supabase
           .from('chats')
           .insert({ scope: 'match', match_id: matchId })
           .select('id')

@@ -103,7 +103,7 @@ export function Chat({ chatId }: { chatId: string | undefined }) {
       <form onSubmit={handleSend} className="flex border-t border-gray-800 p-3 bg-gray-900/30 gap-2 items-center">
         <input
           ref={inputRef}
-          className="flex-1 bg-gray-900 border border-gray-800 text-gray-100 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 placeholder-gray-600 transition-all disabled:opacity-50"
+          className="flex-1 bg-gray-900 border border-gray-800 text-gray-100 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 placeholder:text-gray-600 transition-all disabled:opacity-50"
           placeholder="Transmit a tactical message..."
           value={input}
           onChange={e => setInput(e.target.value)}

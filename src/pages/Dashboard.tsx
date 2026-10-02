@@ -7,6 +7,8 @@ import { Card, Avatar, Button } from '../components/ui';
 import { OpenChallenges } from '../components/OpenChallenges';
 import { FriendlyHistory } from '../components/FriendlyHistory';
 import { useToast } from '../components/Toast';
+import { getEvidencePath } from '../lib/storage';
+import { getRankTitle } from '../lib/ranking';
 import {
   Target,
   LayoutDashboard,
@@ -18,16 +20,44 @@ import {
   Gamepad2,
   Zap,
   Radio,
-  Lock,
-  ImageIcon,
+  ImageIcon
 } from 'lucide-react';
 import soccerImg from '../images/Soccer.png';
 
+interface DashboardMatch {
+  id?: string;
+  match_id?: string;
+  player1_id?: string | null;
+  player2_id?: string | null;
+  winner_id?: string | null;
+  status?: string | null;
+  created_at?: string;
+  screenshot_url?: string | null;
+  score_player1?: string | number | null;
+  score_player2?: string | number | null;
+  chat_id?: string | null;
+  tournament_name?: string | null;
+  scheduled_at?: string | null;
+  reporter?: { username?: string | null; avatar_url?: string | null } | null;
+  sender?: { username?: string | null; avatar_url?: string | null } | null;
+  challenger?: { username?: string | null; avatar_url?: string | null } | null;
+  games?: { name?: string | null } | null;
+}
+
+// Direct challenges are rows from the `challenges` table, keyed by `id`
+// (unlike match_results rows, which are keyed by `match_id`).
+interface DirectChallenge extends DashboardMatch {
+  id: string;
+  challenger: { username?: string | null; avatar_url?: string | null } | null;
+  games: { name?: string | null } | null;
+}
+
 interface MatchCardProps {
-  match: any;
+  match: DashboardMatch;
   uid: string | null;
   name: (pid?: string | null) => string;
   avatar: (pid?: string | null) => string | null;
+  resultStatus?: string;
 }
 
 interface GameOption {
@@ -77,37 +107,10 @@ async function fetchUpcoming() {
 }
 
 async function fetchGames() {
-  const { data, error } = await supabase
-    .from('games')
-    .select('id,name')
-    .order('name');
+  const { data, error } = await supabase.from('games').select('id,name').order('name');
 
   if (error) throw error;
   return data as GameOption[];
-}
-
-function getEvidencePath(value: string | null) {
-  if (!value) return '';
-
-  if (!value.startsWith('http')) return value;
-
-  try {
-    const url = new URL(value);
-    const signedMarker = '/storage/v1/object/sign/evidence/';
-    const publicMarker = '/storage/v1/object/public/evidence/';
-
-    if (url.pathname.includes(signedMarker)) {
-      return decodeURIComponent(url.pathname.split(signedMarker)[1]);
-    }
-
-    if (url.pathname.includes(publicMarker)) {
-      return decodeURIComponent(url.pathname.split(publicMarker)[1]);
-    }
-
-    return value;
-  } catch {
-    return value;
-  }
 }
 
 async function getOrCreateMatchChat(matchId: string) {
@@ -125,7 +128,7 @@ async function getOrCreateMatchChat(matchId: string) {
     .from('chats')
     .insert({
       scope: 'match',
-      match_id: matchId,
+      match_id: matchId
     })
     .select('id')
     .single();
@@ -166,10 +169,47 @@ const EmptyState = () => (
   </div>
 );
 
-const MatchCard: React.FC<MatchCardProps> = ({ match, uid, name, avatar }) => {
+function StatTile({
+  icon,
+  label,
+  value,
+  sub,
+  tone
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  sub: string;
+  tone: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-3 sm:p-4">
+      <div
+        className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider ${tone}`}
+      >
+        {icon}
+        <span className="truncate">{label}</span>
+      </div>
+      <p className="mt-1.5 text-xl sm:text-2xl font-black italic leading-none text-white">
+        {value}
+      </p>
+      <p className="mt-1 text-[11px] text-slate-300 truncate">{sub}</p>
+    </div>
+  );
+}
+
+const MatchCard: React.FC<MatchCardProps> = ({ match, uid, name, avatar, resultStatus }) => {
   const involved = uid && (uid === match.player1_id || uid === match.player2_id);
-  const isPendingVerification =
-    match.status === 'pending' || match.match_results_status === 'pending';
+
+  // Production note: `matches.match_results_status` does not exist. The
+  // awaiting-approval state comes from the match_results row instead.
+  const isPendingVerification = resultStatus === 'pending';
+
+  const matchId = match.match_id as string;
+  const score1 = match.score_player1;
+  const score2 = match.score_player2;
+  const hasScore =
+    score1 !== null && score1 !== undefined && score2 !== null && score2 !== undefined;
 
   return (
     <div className="group relative min-w-0">
@@ -190,7 +230,7 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, uid, name, avatar }) => {
                   ? new Date(match.scheduled_at).toLocaleString([], {
                       weekday: 'short',
                       hour: '2-digit',
-                      minute: '2-digit',
+                      minute: '2-digit'
                     })
                   : 'Time TBA'}
               </span>
@@ -223,17 +263,12 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, uid, name, avatar }) => {
             </div>
 
             <div className="z-10 bg-black px-3 py-1.5 border border-blue-500/40 rounded-lg shrink-0 shadow-lg shadow-blue-600/10">
-              {match.score_player1 !== null &&
-              match.score_player1 !== undefined &&
-              match.score_player2 !== null &&
-              match.score_player2 !== undefined ? (
+              {hasScore ? (
                 <span className="font-mono font-black text-cyan-300 text-sm">
-                  {match.score_player1} : {match.score_player2}
+                  {score1} : {score2}
                 </span>
               ) : (
-                <span className="text-cyan-300 font-black italic text-lg sm:text-xl">
-                  VS
-                </span>
+                <span className="text-cyan-300 font-black italic text-lg sm:text-xl">VS</span>
               )}
             </div>
 
@@ -251,17 +286,17 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, uid, name, avatar }) => {
           </div>
 
           <div className="mt-8 flex flex-col sm:flex-row gap-3 pt-5 border-t border-gray-800">
-            <Link to={`/matches/${match.match_id}`} className="flex-1">
-              <Button variant="outline" className="w-full text-[10px] font-black border-blue-500/30 hover:bg-blue-600/10 text-gray-100 py-2 uppercase tracking-widest">
+            <Link to={`/matches/${matchId}`} className="flex-1">
+              <Button
+                variant="outline"
+                className="w-full text-[10px] font-black border-blue-500/30 hover:bg-blue-600/10 text-gray-100 py-2 uppercase tracking-widest"
+              >
                 Combat Hub
               </Button>
             </Link>
 
             {involved && !isPendingVerification && match.status !== 'completed' && (
-              <Link
-                to={`/tournaments/${match.tournament_id || 'exhibition'}/submit/${match.match_id}`}
-                className="flex-1"
-              >
+              <Link to={`/matches/${matchId}/submit`} className="flex-1">
                 <Button className="w-full bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black py-2 uppercase tracking-widest shadow-lg shadow-blue-600/20">
                   Report
                 </Button>
@@ -277,7 +312,7 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, uid, name, avatar }) => {
 export function Dashboard() {
   const [uid, setUid] = React.useState<string | null>(null);
   const [selectedGame, setSelectedGame] = React.useState<string>('');
-  const [incomingChallenges, setIncomingChallenges] = React.useState<any[]>([]);
+  const [incomingChallenges, setIncomingChallenges] = React.useState<DirectChallenge[]>([]);
   const [quickLoading, setQuickLoading] = React.useState(false);
   const [notificationOpen, setNotificationOpen] = React.useState(false);
 
@@ -285,22 +320,92 @@ export function Dashboard() {
   const notify = useToast();
   const queryClient = useQueryClient();
 
+  // The view exposes `match_id` (not `id`) and has NO score columns.
+  // `match_results_status` does not exist on matches in production, so the
+  // "Pending Approval" state is derived from match_results instead.
   const { data, isLoading } = useQuery({
     queryKey: ['upcoming'],
-    queryFn: fetchUpcoming,
+    queryFn: fetchUpcoming
   });
 
   const { data: games, isLoading: gamesLoading } = useQuery({
     queryKey: ['games'],
-    queryFn: fetchGames,
+    queryFn: fetchGames
   });
+
+  /**
+   * Result status per match, so MatchCard can tell "awaiting admin approval"
+   * apart from a match that simply hasn't been played yet.
+   * Production note: matches has no match_results_status column.
+   */
+  const { data: resultStatusByMatch = new Map<string, string>() } = useQuery({
+    queryKey: ['match-result-status'],
+    queryFn: async () => {
+      const { data: rows, error } = await supabase
+        .from('match_results')
+        .select('match_id, status')
+        .limit(500);
+
+      if (error) throw error;
+
+      const map = new Map<string, string>();
+      for (const row of (rows || []) as { match_id: string; status: string }[]) {
+        // Pending wins over anything else for UI purposes.
+        if (map.get(row.match_id) !== 'pending') map.set(row.match_id, row.status);
+      }
+      return map;
+    }
+  });
+
+  /**
+   * Player summary for the stat strip.
+   * Production note: rankings is keyed by profile_id and is season/game scoped,
+   * so we take the top row rather than assuming a single global one.
+   */
+  const { data: myRanking } = useQuery({
+    queryKey: ['my-ranking', uid],
+    enabled: !!uid,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('rankings')
+        .select('points, wins, losses, matches_played, elo_rating')
+        .eq('profile_id', uid!)
+        .order('points', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data as {
+        points: number;
+        wins: number;
+        losses: number;
+        matches_played: number;
+        elo_rating: number;
+      } | null;
+    }
+  });
+
+  const stats = React.useMemo(() => {
+    const wins = myRanking?.wins ?? 0;
+    const losses = myRanking?.losses ?? 0;
+    const played = wins + losses;
+    return {
+      wins,
+      losses,
+      played,
+      elo: myRanking?.elo_rating ?? 1200,
+      points: myRanking?.points ?? 0,
+      winRate: played > 0 ? Math.round((wins / played) * 100) : 0
+    };
+  }, [myRanking]);
 
   const { data: confirmedEvidence = [] } = useQuery({
     queryKey: ['confirmed-evidence-feed'],
     queryFn: async () => {
       const { data: rows, error } = await supabase
         .from('match_results')
-        .select(`
+        .select(
+          `
           id,
           match_id,
           reported_by,
@@ -312,7 +417,8 @@ export function Dashboard() {
             username,
             avatar_url
           )
-        `)
+        `
+        )
         .eq('status', 'confirmed')
         .not('screenshot_url', 'is', null)
         .order('created_at', { ascending: false })
@@ -321,7 +427,7 @@ export function Dashboard() {
       if (error) throw error;
 
       const signedRows = await Promise.all(
-        ((rows || []) as any[]).map(async (row) => {
+        ((rows || []) as DashboardMatch[]).map(async (row) => {
           let signedUrl = '';
 
           const evidencePath = getEvidencePath(row.screenshot_url);
@@ -340,23 +446,56 @@ export function Dashboard() {
             ...row,
             signedUrl,
             reporter: Array.isArray(row.reporter)
-              ? row.reporter[0] ?? null
-              : row.reporter ?? null,
+              ? (row.reporter[0] ?? null)
+              : (row.reporter ?? null)
           };
         })
       );
 
       return signedRows as ConfirmedEvidence[];
-    },
+    }
   });
 
+  /**
+   * Recent messages for chats the current user actually participates in.
+   *
+   * SECURITY: this previously selected the 15 latest chat_messages rows in the
+   * whole table, which surfaced other users' private match chats in the
+   * notification dropdown. Verified 2026-10-02: a brand-new account could read
+   * every existing message. We now resolve the user's match ids first and
+   * filter on them, and RLS (migration 0019) enforces the same rule server-side.
+   */
   const { data: recentMessages = [] } = useQuery({
     queryKey: ['recent-match-messages', uid],
     enabled: !!uid,
     queryFn: async () => {
+      if (!uid) return [];
+
+      const { data: myMatches, error: matchErr } = await supabase
+        .from('matches')
+        .select('id')
+        .or(`player1_id.eq.${uid},player2_id.eq.${uid}`);
+
+      if (matchErr) throw matchErr;
+
+      const matchIds = ((myMatches || []) as { id: string }[]).map((m) => m.id);
+      if (!matchIds.length) return [];
+
+      const { data: myChats, error: chatErr } = await supabase
+        .from('chats')
+        .select('id, match_id')
+        .eq('scope', 'match')
+        .in('match_id', matchIds);
+
+      if (chatErr) throw chatErr;
+
+      const chatIds = ((myChats || []) as { id: string }[]).map((c) => c.id);
+      if (!chatIds.length) return [];
+
       const { data: rows, error } = await supabase
         .from('chat_messages')
-        .select(`
+        .select(
+          `
           id,
           message,
           created_at,
@@ -365,33 +504,40 @@ export function Dashboard() {
           sender:profiles!chat_messages_sender_id_fkey (
             username,
             avatar_url
-          ),
-          chats!inner (
-            id,
-            match_id
           )
-        `)
+        `
+        )
+        .in('chat_id', chatIds)
+        .neq('sender_id', uid)
         .order('created_at', { ascending: false })
         .limit(15);
 
       if (error) throw error;
 
-      return ((rows || []) as any[]).map((row) => ({
-        ...row,
-        sender: Array.isArray(row.sender) ? row.sender[0] ?? null : row.sender ?? null,
-        chats: Array.isArray(row.chats) ? row.chats[0] ?? null : row.chats ?? null,
-      })) as RecentMessage[];
-    },
+      // Attach the match_id locally (we already know the chat -> match mapping).
+      const matchByChat = new Map<string, string>(
+        ((myChats || []) as { id: string; match_id: string }[]).map((c) => [c.id, c.match_id])
+      );
+
+      return ((rows || []) as DashboardMatch[]).map((row) => {
+        const chatMatchId = row.chat_id ? matchByChat.get(row.chat_id) : undefined;
+        return {
+          ...row,
+          sender: Array.isArray(row.sender) ? (row.sender[0] ?? null) : (row.sender ?? null),
+          chats: chatMatchId && row.chat_id ? { id: row.chat_id, match_id: chatMatchId } : null
+        };
+      }) as RecentMessage[];
+    }
   });
 
-  const unreadOpponentMessages = recentMessages.filter(
-    (msg) => msg.sender_id !== uid
-  );
+  // Query already excludes the current user's own messages.
+  const unreadOpponentMessages = recentMessages;
 
   const fetchIncomingDirectChallenges = async (myId: string) => {
     const { data: directMatches, error } = await supabase
       .from('matches')
-      .select(`
+      .select(
+        `
         id,
         player1_id,
         player2_id,
@@ -404,7 +550,8 @@ export function Dashboard() {
           username,
           avatar_url
         )
-      `)
+      `
+      )
       .eq('player2_id', myId)
       .eq('status', 'pending');
 
@@ -413,14 +560,14 @@ export function Dashboard() {
       return;
     }
 
-    const normalized = ((directMatches || []) as any[]).map((challenge) => ({
+    const normalized = ((directMatches || []) as DirectChallenge[]).map((challenge) => ({
       ...challenge,
       challenger: Array.isArray(challenge.challenger)
-        ? challenge.challenger[0] ?? null
-        : challenge.challenger ?? null,
+        ? (challenge.challenger[0] ?? null)
+        : (challenge.challenger ?? null),
       games: Array.isArray(challenge.games)
-        ? challenge.games[0] ?? null
-        : challenge.games ?? null,
+        ? (challenge.games[0] ?? null)
+        : (challenge.games ?? null)
     }));
 
     setIncomingChallenges(normalized);
@@ -447,10 +594,11 @@ export function Dashboard() {
         {
           event: '*',
           schema: 'public',
-          table: 'chat_messages',
+          table: 'chat_messages'
         },
         () => {
           queryClient.invalidateQueries({ queryKey: ['recent-match-messages', uid] });
+          queryClient.invalidateQueries({ queryKey: ['match-result-status'] });
         }
       )
       .on(
@@ -458,7 +606,7 @@ export function Dashboard() {
         {
           event: '*',
           schema: 'public',
-          table: 'matches',
+          table: 'matches'
         },
         () => {
           queryClient.invalidateQueries({ queryKey: ['upcoming'] });
@@ -470,11 +618,12 @@ export function Dashboard() {
         {
           event: '*',
           schema: 'public',
-          table: 'match_results',
+          table: 'match_results'
         },
         () => {
           queryClient.invalidateQueries({ queryKey: ['confirmed-evidence-feed'] });
           queryClient.invalidateQueries({ queryKey: ['upcoming'] });
+          queryClient.invalidateQueries({ queryKey: ['match-result-status'] });
         }
       )
       .subscribe();
@@ -487,9 +636,7 @@ export function Dashboard() {
   const acceptDirectChallenge = async (matchId: string) => {
     const selectedChallenge = incomingChallenges.find((ch) => ch.id === matchId);
     const challengerName =
-      selectedChallenge?.challenger?.username ||
-      name(selectedChallenge?.player1_id) ||
-      'Opponent';
+      selectedChallenge?.challenger?.username || name(selectedChallenge?.player1_id) || 'Opponent';
 
     const { error } = await supabase
       .from('matches')
@@ -533,11 +680,11 @@ export function Dashboard() {
   };
 
   const ids = [
-    ...(data || []).flatMap((m: any) => [m.player1_id, m.player2_id]),
+    ...(data || []).flatMap((m: DashboardMatch) => [m.player1_id, m.player2_id]),
     ...incomingChallenges.map((c) => c.player1_id),
     ...incomingChallenges.map((c) => c.player2_id),
     ...recentMessages.map((m) => m.sender_id),
-    ...confirmedEvidence.map((e) => e.reported_by),
+    ...confirmedEvidence.map((e) => e.reported_by)
   ].filter(Boolean) as string[];
 
   const { nameMap, avatarMap } = useProfilesMap(ids);
@@ -564,30 +711,39 @@ export function Dashboard() {
             </h1>
 
             <p className="text-gray-300 font-medium max-w-2xl text-sm sm:text-base">
-              Manage fixtures, accept challenges, monitor match chat, and submit verified results from one protected arena.
+              Manage fixtures, accept challenges, monitor match chat, and submit verified results
+              from one protected arena.
             </p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
-                <div className="flex items-center gap-2 text-green-300 text-xs font-black uppercase">
-                  <ShieldCheck size={15} /> RLS Protected
-                </div>
-                <p className="text-[11px] text-gray-300 mt-1">Only match players can access chats.</p>
-              </div>
-
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
-                <div className="flex items-center gap-2 text-blue-300 text-xs font-black uppercase">
-                  <Radio size={15} /> Live Sync
-                </div>
-                <p className="text-[11px] text-gray-300 mt-1">Realtime match updates and messages.</p>
-              </div>
-
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
-                <div className="flex items-center gap-2 text-purple-300 text-xs font-black uppercase">
-                  <Lock size={15} /> Secure Evidence
-                </div>
-                <p className="text-[11px] text-gray-300 mt-1">Results move through approval flow.</p>
-              </div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
+              <StatTile
+                icon={<ShieldCheck size={14} />}
+                label="Win Rate"
+                value={`${stats.winRate}%`}
+                sub={`${stats.wins}W / ${stats.losses}L`}
+                tone="text-emerald-300"
+              />
+              <StatTile
+                icon={<Target size={14} />}
+                label="ELO Rating"
+                value={String(stats.elo)}
+                sub={getRankTitle(stats.elo)}
+                tone="text-cyan-300"
+              />
+              <StatTile
+                icon={<Zap size={14} />}
+                label="Experience"
+                value={String(stats.points)}
+                sub={`${stats.played} matches played`}
+                tone="text-blue-300"
+              />
+              <StatTile
+                icon={<Radio size={14} />}
+                label="In View"
+                value={String((data || []).length)}
+                sub="active fixtures"
+                tone="text-purple-300"
+              />
             </div>
           </div>
 
@@ -600,7 +756,6 @@ export function Dashboard() {
               >
                 <Bell size={16} />
                 Notifications
-
                 {unreadOpponentMessages.length > 0 && (
                   <span className="absolute -top-2 -right-2 min-w-5 h-5 px-1 rounded-full bg-red-600 text-white text-[10px] flex items-center justify-center font-black shadow-lg">
                     {unreadOpponentMessages.length}
@@ -612,12 +767,8 @@ export function Dashboard() {
                 <div className="absolute right-0 left-0 lg:left-auto mt-3 w-full lg:w-96 max-h-96 overflow-y-auto rounded-2xl border border-blue-500/30 bg-[#070912] shadow-2xl shadow-black/80 z-[99999]">
                   <div className="p-4 border-b border-gray-800 flex items-center justify-between gap-3 bg-blue-950/20">
                     <div>
-                      <p className="text-sm font-black uppercase text-white">
-                        Match Messages
-                      </p>
-                      <p className="text-[11px] text-gray-300">
-                        Latest secure arena chat activity
-                      </p>
+                      <p className="text-sm font-black uppercase text-white">Match Messages</p>
+                      <p className="text-[11px] text-gray-300">Latest secure arena chat activity</p>
                     </div>
 
                     <MessageCircle size={18} className="text-cyan-300" />
@@ -658,14 +809,12 @@ export function Dashboard() {
                               <p className="text-[10px] text-gray-400 shrink-0">
                                 {new Date(msg.created_at).toLocaleTimeString([], {
                                   hour: '2-digit',
-                                  minute: '2-digit',
+                                  minute: '2-digit'
                                 })}
                               </p>
                             </div>
 
-                            <p className="text-xs text-gray-300 truncate mt-1">
-                              {msg.message}
-                            </p>
+                            <p className="text-xs text-gray-300 truncate mt-1">{msg.message}</p>
                           </div>
                         </button>
                       ))}
@@ -716,7 +865,7 @@ export function Dashboard() {
 
                     const { data: rpcRes, error } = await supabase.rpc('claim_quick_match', {
                       p_uid: uid,
-                      p_game_id: selectedGame,
+                      p_game_id: selectedGame
                     });
 
                     if (!error && rpcRes) {
@@ -768,9 +917,7 @@ export function Dashboard() {
                             Challenger
                           </p>
 
-                          <p className="text-white font-black truncate">
-                            {challengerName}
-                          </p>
+                          <p className="text-white font-black truncate">{challengerName}</p>
 
                           <p className="text-[10px] text-cyan-300 font-black uppercase tracking-wide mt-1 truncate">
                             {ch.games?.name || 'Exhibition Match'}
@@ -806,9 +953,7 @@ export function Dashboard() {
                 <Gamepad2 className="text-blue-400" size={22} />
                 Upcoming Fixtures
               </h2>
-              <p className="text-sm text-gray-300 font-medium">
-                Live and scheduled match activity
-              </p>
+              <p className="text-sm text-gray-300 font-medium">Live and scheduled match activity</p>
             </div>
           </section>
 
@@ -821,13 +966,14 @@ export function Dashboard() {
                 />
               ))
             ) : data && data.length > 0 ? (
-              data.map((m: any) => (
+              data.map((m: DashboardMatch) => (
                 <MatchCard
                   key={m.match_id}
                   match={m}
                   uid={uid}
                   name={name}
                   avatar={avatar}
+                  resultStatus={m.match_id ? resultStatusByMatch.get(m.match_id) : undefined}
                 />
               ))
             ) : (
@@ -908,9 +1054,7 @@ export function Dashboard() {
                   <Zap size={16} className="text-yellow-300" />
                   Open Challenges
                 </h2>
-                <p className="text-gray-300 text-xs mt-1">
-                  Join available friendly battles.
-                </p>
+                <p className="text-gray-300 text-xs mt-1">Join available friendly battles.</p>
               </div>
               <OpenChallenges />
             </div>
@@ -926,9 +1070,7 @@ export function Dashboard() {
                 </p>
               </div>
 
-              <div className="[&_*]:!text-gray-900 [&_h1]:!text-gray-950 [&_h2]:!text-gray-950 [&_h3]:!text-gray-950 [&_p]:!text-gray-700 [&_span]:!text-gray-700 [&_td]:!text-gray-800 [&_th]:!text-gray-950">
-                <FriendlyHistory uid={uid} />
-              </div>
+              <FriendlyHistory uid={uid} />
             </div>
           </div>
         </main>
