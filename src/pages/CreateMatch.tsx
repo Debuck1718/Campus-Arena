@@ -68,7 +68,7 @@ export function CreateMatch() {
         .from('matches')
         .select('id')
         .eq('player1_id', uid)
-        .eq('player2_id', opponent)
+        .eq('challenged_user_id', opponent)
         .eq('game_id', game)
         .eq('status', 'pending');
 
@@ -78,11 +78,16 @@ export function CreateMatch() {
         return;
       }
 
+      // Migration 0020+: challenges are created with challenged_user_id set and
+      // player2_id unset. player2_id is only filled in when the challenged
+      // player accepts via the accept_match_challenge RPC — direct client
+      // updates to match rows are rejected by RLS by design.
       const { data, error } = await supabase
         .from('matches')
         .insert({
           player1_id: uid,
-          player2_id: opponent,
+          challenged_user_id: opponent,
+          player2_id: null,
           game_id: game,
           status: 'pending',
           tournament_id: null,

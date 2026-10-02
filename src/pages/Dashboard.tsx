@@ -5,24 +5,30 @@ import { useProfilesMap } from '../hooks/useProfilesMap';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card, Avatar, Button } from '../components/ui';
 import { OpenChallenges } from '../components/OpenChallenges';
-import { FriendlyHistory } from '../components/FriendlyHistory';
 import { useToast } from '../components/Toast';
 import { getEvidencePath } from '../lib/storage';
 import { getRankTitle } from '../lib/ranking';
-import {
-  Target,
-  LayoutDashboard,
-  Check,
-  X,
-  Bell,
-  MessageCircle,
-  ShieldCheck,
-  Gamepad2,
-  Zap,
-  Radio,
-  ImageIcon
-} from 'lucide-react';
 import soccerImg from '../images/Soccer.png';
+
+// Local SVG icons keep this page independent of the unavailable lucide-react package.
+type IconProps = { size?: number; className?: string };
+const Icon = ({ size = 24, className, children }: React.PropsWithChildren<IconProps>) => (
+  <svg aria-hidden="true" viewBox="0 0 24 24" width={size} height={size} fill="none"
+    stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    {children}
+  </svg>
+);
+const Target = (props: IconProps) => <Icon {...props}><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="2" /></Icon>;
+const LayoutDashboard = (props: IconProps) => <Icon {...props}><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18M9 21V9" /></Icon>;
+const Check = (props: IconProps) => <Icon {...props}><path d="m5 12 4 4L19 6" /></Icon>;
+const X = (props: IconProps) => <Icon {...props}><path d="m18 6-12 12M6 6l12 12" /></Icon>;
+const Bell = (props: IconProps) => <Icon {...props}><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></Icon>;
+const MessageCircle = (props: IconProps) => <Icon {...props}><path d="M21 11.5a8.5 8.5 0 0 1-12.3 7.6L3 21l1.9-5.7A8.5 8.5 0 1 1 21 11.5Z" /></Icon>;
+const ShieldCheck = (props: IconProps) => <Icon {...props}><path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11z" /><path d="m9 12 2 2 4-4" /></Icon>;
+const Gamepad2 = (props: IconProps) => <Icon {...props}><path d="M6 7h12a4 4 0 0 1 3.9 4.9l-1 4A3 3 0 0 1 16 18l-2-2h-4l-2 2a3 3 0 0 1-4.9-2.1l-1-4A4 4 0 0 1 6 7z" /><path d="M6 11h4m-2-2v4m7-2h.01M18 10h.01" /></Icon>;
+const Zap = (props: IconProps) => <Icon {...props}><path d="m13 2-3 8h7l-6 12 1-9H5l8-11z" /></Icon>;
+const Radio = (props: IconProps) => <Icon {...props}><circle cx="12" cy="12" r="2" /><path d="M16.2 7.8a6 6 0 0 1 0 8.5m-8.5 0a6 6 0 0 1 0-8.5m11.3-2.8a10 10 0 0 1 0 14.1m-14.1 0a10 10 0 0 1 0-14.1" /></Icon>;
+const ImageIcon = (props: IconProps) => <Icon {...props}><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="m21 15-5-5L5 21" /></Icon>;
 
 interface DashboardMatch {
   id?: string;
@@ -552,7 +558,7 @@ export function Dashboard() {
         )
       `
       )
-      .eq('player2_id', myId)
+      .eq('challenged_user_id', myId)
       .eq('status', 'pending');
 
     if (error) {
@@ -638,11 +644,12 @@ export function Dashboard() {
     const challengerName =
       selectedChallenge?.challenger?.username || name(selectedChallenge?.player1_id) || 'Opponent';
 
-    const { error } = await supabase
-      .from('matches')
-      .update({ status: 'ongoing' })
-      .eq('id', matchId)
-      .eq('player2_id', uid);
+    // Acceptance goes through the accept_match_challenge RPC (migration 0020).
+    // Direct client updates to match.status/player2_id are rejected by RLS by
+    // design — the RPC validates that the caller is the challenged user.
+    const { error } = await supabase.rpc('accept_match_challenge', {
+      p_match_id: matchId
+    });
 
     if (error) {
       notify('Failed to accept challenge. Please try again.', 'error');
@@ -665,11 +672,12 @@ export function Dashboard() {
   };
 
   const declineDirectChallenge = async (matchId: string) => {
-    const { error } = await supabase
-      .from('matches')
-      .delete()
-      .eq('id', matchId)
-      .eq('player2_id', uid);
+    // Decline goes through the same RPC with a declined flag. Direct deletes
+    // of matches are blocked by RLS under the new challenge model.
+    const { error } = await supabase.rpc('accept_match_challenge', {
+      p_match_id: matchId,
+      p_decline: true
+    });
 
     if (!error) {
       notify('Challenge declined and removed from your arena.', 'info');
@@ -1047,8 +1055,8 @@ export function Dashboard() {
             </section>
           )}
 
-          <div className="mt-10 grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-1 min-w-0 rounded-3xl border border-blue-500/20 bg-gray-950/70 p-4 shadow-xl">
+          <div className="mt-10">
+            <div className="min-w-0 rounded-3xl border border-blue-500/20 bg-gray-950/70 p-4 shadow-xl">
               <div className="mb-4">
                 <h2 className="text-white font-black uppercase tracking-widest text-sm flex items-center gap-2">
                   <Zap size={16} className="text-yellow-300" />
@@ -1057,20 +1065,6 @@ export function Dashboard() {
                 <p className="text-gray-300 text-xs mt-1">Join available friendly battles.</p>
               </div>
               <OpenChallenges />
-            </div>
-
-            <div className="lg:col-span-2 min-w-0 rounded-3xl border border-purple-500/20 bg-gray-950/70 p-4 shadow-xl">
-              <div className="mb-4">
-                <h2 className="text-white font-black uppercase tracking-widest text-sm flex items-center gap-2">
-                  <ShieldCheck size={16} className="text-purple-300" />
-                  Friendly Match History
-                </h2>
-                <p className="text-gray-300 text-xs mt-1">
-                  Verified friendly records and recent results.
-                </p>
-              </div>
-
-              <FriendlyHistory uid={uid} />
             </div>
           </div>
         </main>

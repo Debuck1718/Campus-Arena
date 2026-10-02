@@ -63,18 +63,15 @@ export function OpenChallenges() {
       return;
     }
 
-    // Atomic update: claim the open match slot safely
-    const { data, error } = await supabase
-      .from('matches')
-      .update({ player2_id: currentUid, status: 'ongoing' }) // Update status to ongoing upon acceptance
-      .eq('id', id)
-      .is('player2_id', null)
-      .select('id')
-      .single();
+    // Accept securely via RPC — direct match-row writes are blocked by RLS/triggers.
+    const { data, error } = await supabase.rpc('accept_match_challenge', {
+      p_match_id: id,
+    });
 
-    if (!error && data?.id) {
+    const acceptedId = Array.isArray(data) ? data[0]?.id : data;
+    if (!error && acceptedId) {
       notify('Challenge accepted! Opening combat room...', 'success');
-      nav(`/matches/${data.id}`);
+      nav(`/matches/${acceptedId}`);
       return;
     }
 

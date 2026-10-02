@@ -12,9 +12,21 @@ export function SubmitResult() {
   // State accepts number or empty string to allow seamless input clearing
   const [score1, setScore1] = React.useState<number | ''>(0);
   const [score2, setScore2] = React.useState<number | ''>(0);
+  const [tiebreak1, setTiebreak1] = React.useState<number | ''>('');
+  const [tiebreak2, setTiebreak2] = React.useState<number | ''>('');
+  const [isKnockout, setIsKnockout] = React.useState(false);
   const [file, setFile] = React.useState<File | null>(null);
   const [err, setErr] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
+
+  React.useEffect(() => {
+    supabase
+      .from('matches')
+      .select('stage')
+      .eq('id', matchId)
+      .maybeSingle()
+      .then(({ data }) => setIsKnockout(data?.stage === 'knockout'));
+  }, [matchId]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -43,6 +55,23 @@ export function SubmitResult() {
     // Default blank values to 0 right before database insertion
     const finalScore1 = score1 === '' ? 0 : score1;
     const finalScore2 = score2 === '' ? 0 : score2;
+    const isTie = finalScore1 === finalScore2;
+
+    // Knockout draws are decided by separate, unequal tiebreak scores (migration 0020).
+    const finalTiebreak1 = tiebreak1 === '' ? null : tiebreak1;
+    const finalTiebreak2 = tiebreak2 === '' ? null : tiebreak2;
+    if (isTie && isKnockout) {
+      if (finalTiebreak1 === null || finalTiebreak2 === null) {
+        setErr('A tied knockout result requires tiebreak scores for both players.');
+        setLoading(false);
+        return;
+      }
+      if (finalTiebreak1 === finalTiebreak2) {
+        setErr('Tiebreak scores must not be equal — one player must win the tiebreak.');
+        setLoading(false);
+        return;
+      }
+    }
 
     // 1. Insert into match_results
     const { error: resultError } = await supabase.from('match_results').insert({
@@ -50,6 +79,8 @@ export function SubmitResult() {
       reported_by: user.id,
       score_player1: finalScore1,
       score_player2: finalScore2,
+      tiebreak_score_player1: finalTiebreak1,
+      tiebreak_score_player2: finalTiebreak2,
       screenshot_url: filePath,
       status: 'pending',
     });
@@ -60,19 +91,15 @@ export function SubmitResult() {
       return;
     }
 
-    // 2. Synchronize the parent match table status to alert the system of a pending report
-    const { error: matchUpdateError } = await supabase
-      .from('matches')
-      .update({ status: 'pending' })
-      .eq('id', matchId);
-
+    // The match status transition is handled server-side by triggers on
+    // match_results (migration 0020 blocks direct client updates to matches).
     setLoading(false);
-    if (matchUpdateError) {
-      setErr('Match state sync failure: ' + matchUpdateError.message);
-    } else {
-      nav(-1);
-    }
+    nav(-1);
   }
+
+  // Tiebreak inputs appear when the submitted regulation score is a draw.
+  const scoresTied = score1 !== '' && score2 !== '' && score1 === score2;
+  const isTieVisible = scoresTied;
 
   const handleScoreChange = (value: string, setScore: React.Dispatch<React.SetStateAction<number | ''>>) => {
     if (value === '') {
@@ -116,6 +143,38 @@ export function SubmitResult() {
               />
             </div>
           </div>
+
+          {(isTieVisible) && (
+            <div className="grid grid-cols-2 gap-4 rounded-xl border border-amber-700/40 bg-amber-900/10 p-4">
+              <div className="col-span-2">
+                <label className="text-xs font-semibold uppercase tracking-wider text-amber-400">
+                  Tiebreak Scores {isKnockout ? '(required — decides the winner)' : '(optional)'}
+                </label>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase tracking-wider text-gray-500">Player 1 Tiebreak</label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={tiebreak1}
+                  onChange={(e) => handleScoreChange(e.target.value, setTiebreak1)}
+                  className="bg-black border-gray-700 text-lg"
+                  placeholder="0"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase tracking-wider text-gray-500">Player 2 Tiebreak</label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={tiebreak2}
+                  onChange={(e) => handleScoreChange(e.target.value, setTiebreak2)}
+                  className="bg-black border-gray-700 text-lg"
+                  placeholder="0"
+                />
+              </div>
+            </div>
+          )}
 
           <div className="space-y-2">
             <label className="text-xs font-semibold uppercase tracking-wider text-gray-500">Upload Evidence</label>
