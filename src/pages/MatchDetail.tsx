@@ -6,6 +6,38 @@ import { supabase } from '../supabaseClient';
 import { Avatar, Card, Button } from '../components/ui';
 import { Chat } from '../components/Chat';
 import { useMatchChatId } from '../hooks/useMatchChatId';
+import { RaiseDisputeDialog } from '../components/RaiseDisputeDialog';
+import { Gavel, ShieldAlert } from 'lucide-react';
+
+/** Lifecycle status of the evidence attached to this match. */
+type ResultStatus = 'none' | 'pending' | 'confirmed' | 'disputed' | 'rejected';
+
+function useMatchResultStatus(matchId: string | undefined) {
+  const [status, setStatus] = React.useState<ResultStatus>('none');
+  const [refreshKey, setRefreshKey] = React.useState(0);
+
+  React.useEffect(() => {
+    if (!matchId) return;
+    let cancelled = false;
+    supabase
+      .from('match_results')
+      .select('status')
+      .eq('match_id', matchId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        const s = (data?.status as ResultStatus) || 'none';
+        setStatus(s);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [matchId, refreshKey]);
+
+  return { resultStatus: status, refreshResultStatus: () => setRefreshKey((k) => k + 1) };
+}
 
 export function MatchDetail() {
   const { matchId, id: tournamentId } = useParams<{ matchId: string; id: string }>();
@@ -18,13 +50,24 @@ export function MatchDetail() {
 
   const ids = [match?.player1_id, match?.player2_id].filter(Boolean) as string[];
   const { nameMap, avatarMap } = useProfilesMap(ids);
-  
+
   // Resolve the single source of truth for the match chat channel room
   const chatId = useMatchChatId(matchId);
+  const { resultStatus, refreshResultStatus } = useMatchResultStatus(matchId);
+  const [disputeOpen, setDisputeOpen] = React.useState(false);
+
+  // A disputed match ends the flow: submissions and disputes are frozen while
+  // admins re-review the reopened evidence (migration 0021).
+  const isDisputed = match?.status === 'disputed';
+  const isFinalized = match?.status === 'completed';
 
   const name = (pid?: string | null) => (pid ? nameMap.get(pid) || pid : 'TBD');
   const avatar = (pid?: string | null) => (pid ? avatarMap.get(pid) || null : null);
   const involved = uid && (uid === match?.player1_id || uid === match?.player2_id);
+  const canRaiseDispute =
+    involved &&
+    !isDisputed &&
+    (resultStatus === 'confirmed' || resultStatus === 'pending' || resultStatus === 'disputed');
   const gameData = match?.games ?? null;
   const supportsInPerson = Array.isArray(gameData?.platform_support)
     ? gameData.platform_support.includes('In-Person')
@@ -45,7 +88,7 @@ export function MatchDetail() {
         <div className="lg:col-span-2 space-y-6">
           <Card className="bg-gray-900 border-gray-800 shadow-2xl overflow-hidden">
             <div className="p-8 border-l-4 border-blue-600 bg-gradient-to-r from-blue-900/10 to-transparent">
-              
+
               {/* Game Mode Title Header */}
               <div className="text-center mb-6">
                 <div className="text-xs uppercase tracking-[0.3em] text-blue-500 font-black">
@@ -111,7 +154,7 @@ export function MatchDetail() {
               <>Use the chat below to agree on time, format, and match details with your opponent.</>
             )}
           </div>
-          
+
           {/* Chat Container with stylized border protection */}
           <div className="border border-gray-800 rounded-2xl overflow-hidden bg-gray-900/50 backdrop-blur-sm min-h-[350px] flex flex-col justify-between">
             {chatId ? (
@@ -123,7 +166,27 @@ export function MatchDetail() {
             )}
           </div>
 
-          {involved && match.status !== 'completed' && (
+          {isDisputed && (
+            <div className="rounded-2xl bg-amber-500/10 border border-amber-600/40 p-4 flex items-center gap-3">
+              <ShieldAlert size={20} className="text-amber-400 shrink-0" />
+              <p className="text-xs font-bold text-amber-200 leading-relaxed">
+                This match is disputed and frozen. Administrators are re-reviewing the evidence — you will
+                be notified when a ruling is issued.
+              </p>
+            </div>
+          )}
+
+          {resultStatus === 'confirmed' && !isDisputed && (
+            <div className="rounded-2xl bg-green-500/10 border border-green-600/40 p-4 flex items-center gap-3">
+              <ShieldAlert size={20} className="text-green-400 shrink-0" />
+              <p className="text-xs font-bold text-green-200 leading-relaxed">
+                Match evidence has been approved and the result is official. The message box for this
+                match is now closed.
+              </p>
+            </div>
+          )}
+
+          {involved && !isFinalized && !isDisputed && (
             <div className="pt-2">
               <Link to={tournamentId ? `/tournaments/${tournamentId}/submit/${matchId}` : `/matches/${matchId}/submit`}>
                 <Button className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-xl shadow-[0_0_20px_rgba(37,99,235,0.2)] transition-all uppercase tracking-widest text-xs">
@@ -131,6 +194,28 @@ export function MatchDetail() {
                 </Button>
               </Link>
             </div>
+          )}
+
+          {canRaiseDispute && (
+            <div className="pt-2">
+              <Button
+                onClick={() => setDisputeOpen(true)}
+                className="w-full bg-amber-600 hover:bg-amber-500 text-white font-black py-4 rounded-xl transition-all uppercase tracking-widest text-xs flex items-center justify-center gap-2"
+              >
+                <Gavel size={16} /> Raise a Dispute
+              </Button>
+              <p className="text-[10px] text-gray-500 font-bold text-center mt-2 uppercase tracking-widest">
+                Wrong result or bad evidence? Admins will re-review it.
+              </p>
+            </div>
+          )}
+
+          {disputeOpen && matchId && (
+            <RaiseDisputeDialog
+              matchId={matchId}
+              onClose={() => setDisputeOpen(false)}
+              onFiled={refreshResultStatus}
+            />
           )}
         </aside>
       </div>

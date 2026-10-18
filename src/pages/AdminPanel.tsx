@@ -243,6 +243,37 @@ export function AdminPanel() {
     }
   }
 
+  // Un-approves a confirmed result: the evidence re-enters review, the match is
+  // rolled back to 'disputed', and the match chat reopens (migration 0021).
+  async function unapproveMatchResult(result: AdminResultRow) {
+    setUpdatingId(result.id);
+    setStatus(null);
+
+    try {
+      const { error } = await supabase.rpc('admin_unapprove_match_result', {
+        p_result_id: result.id,
+        p_reason: window.prompt('Why is this approved evidence being un-approved?') || null,
+      });
+
+      if (error) throw error;
+
+      setStatus({
+        type: 'success',
+        text: 'Approved evidence un-approved. The match is now disputed and open for re-review.',
+      });
+
+      await fetchData();
+    } catch (e: unknown) {
+      console.error('Un-approve result failed:', e);
+      setStatus({
+        type: 'error',
+        text: e instanceof Error ? e.message : 'Failed to un-approve result.',
+      });
+    } finally {
+      setUpdatingId(null);
+    }
+  }
+
   async function handleMakeAdmin(e: React.FormEvent) {
     e.preventDefault();
     setStatus(null);
@@ -467,6 +498,16 @@ export function AdminPanel() {
                       >
                         Dispute
                       </Button>
+
+                      {r.status === 'confirmed' && (
+                        <Button
+                          onClick={() => unapproveMatchResult(r)}
+                          disabled={updatingId === r.id}
+                          className="bg-amber-600 hover:bg-amber-500 disabled:bg-gray-700 disabled:text-gray-400 text-white px-3 py-1 text-[10px] font-black uppercase rounded"
+                        >
+                          Un-approve
+                        </Button>
+                      )}
                     </div>
                   </td>
                 </tr>

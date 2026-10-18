@@ -33,9 +33,26 @@ function normalizeMessage(row: RawChatMessage): ChatMessage {
   };
 }
 
+export interface ChatRoomState {
+  closed_at: string | null;
+  closed_reason: string | null;
+}
+
 export function useChatMessages(chatId: string | undefined) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
+  // A match chat is closed once its evidence is approved or the match is
+  // disputed (migration 0021). Closed channels are read-only.
+  const [chatState, setChatState] = useState<ChatRoomState | null>(null);
+
+  async function fetchChatState(activeChatId: string) {
+    const { data } = await supabase
+      .from('chats')
+      .select('closed_at, closed_reason')
+      .eq('id', activeChatId)
+      .maybeSingle();
+    setChatState((data as ChatRoomState) ?? null);
+  }
 
   async function fetchMessages(activeChatId: string) {
     setLoading(true);
@@ -70,10 +87,33 @@ export function useChatMessages(chatId: string | undefined) {
   useEffect(() => {
     if (!chatId) {
       setMessages([]);
+      setChatState(null);
       return;
     }
 
     fetchMessages(chatId);
+    fetchChatState(chatId);
+
+    // Realtime updates for the message box lifecycle itself: when admins
+    // approve evidence or a dispute is raised (migration 0021) the row in
+    // `chats` flips to closed, so every open message box locks instantly
+    // without a refresh.
+    const stateChannel = supabase
+      .channel(`chat_state:${chatId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'chats',
+          filter: `id=eq.${chatId}`,
+        },
+        (payload) => {
+          const row = payload.new as { closed_at: string | null; closed_reason: string | null };
+          setChatState({ closed_at: row.closed_at, closed_reason: row.closed_reason });
+        }
+      )
+      .subscribe();
 
     const chatChannel = supabase
       .channel(`chat_room:${chatId}`)
@@ -106,12 +146,17 @@ export function useChatMessages(chatId: string | undefined) {
 
     return () => {
       supabase.removeChannel(chatChannel);
+      supabase.removeChannel(stateChannel);
     };
   }, [chatId]);
 
   async function sendMessage(idOfChat: string, textContent: string) {
     const cleanText = textContent.trim();
     if (!idOfChat || !cleanText) return;
+
+    if (chatState?.closed_at) {
+      throw new Error('This message box is closed because the match has been finalized.');
+    }
 
     const {
       data: { user },
@@ -134,5 +179,5 @@ export function useChatMessages(chatId: string | undefined) {
     }
   }
 
-  return { messages, loading, sendMessage };
+  return { messages, loading, sendMessage, chatState, isClosed: Boolean(chatState?.closed_at) };
 }

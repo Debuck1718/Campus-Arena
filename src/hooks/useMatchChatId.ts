@@ -7,13 +7,14 @@ export function useMatchChatId(matchId: string | undefined) {
     if (!matchId) return;
     let cancelled = false;
     async function fetchOrCreate() {
-      // Try to find existing chat for this match
+      // Try to find existing chat for this match, including its lifecycle state
+      // so the UI can render the approved/disputed banner (migration 0021).
       const { data } = await supabase
         .from('chats')
-        .select('id')
+        .select('id, closed_at, closed_reason')
         .eq('scope', 'match')
         .eq('match_id', matchId)
-        .single();
+        .maybeSingle();
       if (data?.id) {
         if (!cancelled) setChatId(data.id);
       } else {

@@ -171,12 +171,40 @@ export function Navbar({ onLogout }: { onLogout?: () => void }) {
                 ) : notifications.length === 0 ? (
                   <div className="p-3 text-slate-400">No notifications</div>
                 ) : (
-                  notifications.map((n) => (
+                  notifications.map((n) => {
+                    const payload = (n.payload ?? {}) as Record<string, unknown>;
+                    const targetMatchId =
+                      typeof payload.match_id === 'string' ? payload.match_id : null;
+                    // Clicking a match-related notification takes the player
+                    // straight to the match so the message box opens for BOTH
+                    // sides the moment a challenge is accepted, evidence is
+                    // approved, or a dispute is raised.
+                    const isMatchNav =
+                      [
+                        'challenge_accepted',
+                        'challenge_created',
+                        'evidence_approved',
+                        'evidence_unapproved',
+                        'dispute_raised',
+                        'match_disputed',
+                      ].includes(n.type) && targetMatchId;
+                    return (
                     <div
                       key={n.id}
+                      role={isMatchNav ? 'button' : undefined}
+                      tabIndex={isMatchNav ? 0 : undefined}
+                      onClick={() => {
+                        if (isMatchNav) window.location.assign(`/matches/${targetMatchId}`);
+                      }}
+                      onKeyDown={(e) => {
+                        if (isMatchNav && (e.key === 'Enter' || e.key === ' ')) {
+                          window.location.assign(`/matches/${targetMatchId}`);
+                        }
+                      }}
                       className={clsx(
                         'px-4 py-2.5 text-sm border-b border-white/5 last:border-b-0 flex justify-between items-center gap-3',
-                        !n.read_at ? 'bg-cyan-500/10' : 'bg-transparent'
+                        !n.read_at ? 'bg-cyan-500/10' : 'bg-transparent',
+                        isMatchNav && 'cursor-pointer hover:bg-white/5 transition-colors'
                       )}
                     >
                       <div className="min-w-0">
@@ -191,13 +219,17 @@ export function Navbar({ onLogout }: { onLogout?: () => void }) {
                       {!n.read_at && (
                         <button
                           className="shrink-0 text-[11px] font-bold text-cyan-300 hover:underline"
-                          onClick={() => markAsRead(n.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            markAsRead(n.id);
+                          }}
                         >
                           Mark read
                         </button>
                       )}
                     </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             )}
